@@ -8,7 +8,11 @@
   :root { --bg:#141210; --panel:#1e1a17; --panel2:#262019; --ink:#f3ead9; --muted:#b8a88f; --line:#3a3128; --gold:#e8a33d; --green:#7fb069; --rose:#b5525f; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
-  .wrap { max-width:860px; margin:0 auto; padding:28px 18px 60px; }
+  .wrap { max-width:860px; margin:0 auto; padding:28px 18px 0; display:flex; flex-direction:column; height:100vh; height:100dvh; }
+  /* the chat presents everything above the input; the input is the lowest thing on screen */
+  .scroll { flex:1 1 auto; overflow-y:auto; min-height:0; padding-bottom:16px; }
+  .composer { flex:0 0 auto; padding:12px 0 18px; background:var(--bg); border-top:1px solid var(--line); }
+  .composer .row { margin-top:0; }
   h1 { font-size:1.6em; margin:0 0 4px; }
   h1 .j { color:var(--gold); }
   .sub { color:var(--muted); margin:0 0 20px; }
@@ -27,6 +31,11 @@
   button:disabled { opacity:.5; cursor:default; }
   .hint { color:var(--muted); font-size:.88em; margin-top:10px; }
   .hint button { padding:4px 10px; font-size:.9em; }
+  /* model download progress (first load only; cached after that) */
+  .model-progress { margin:8px 0 0; }
+  .model-progress-bar { height:8px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .model-progress-bar > div { height:100%; width:0%; background:var(--gold); transition:width .2s ease; }
+  .model-progress-label { font-size:.85em; color:var(--muted); margin-top:4px; display:block; }
   /* profiles */
   .profiles { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
   .profile { background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px 14px; min-width:180px; flex:1; }
@@ -52,7 +61,11 @@
   .phase p { margin:4px 0 0; color:var(--muted); font-size:.92em; line-height:1.5; }
   .roadmap-sub { color:var(--muted); font-size:.92em; margin:0 0 10px; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
-  .tile { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .tile { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; opacity:0; transform:translateY(6px); transition:opacity .45s ease, transform .45s ease, border-color .45s ease, box-shadow .45s ease; }
+  .tile.on { opacity:1; transform:none; }
+  .tile.building { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
+  .build-status { color:var(--gold); font-size:.92em; margin:0 0 12px; min-height:1.2em; }
+  .phase.building { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
   .tile h3 { margin:0 0 6px; font-size:1em; color:var(--gold); }
   .tile p { margin:0; color:var(--muted); font-size:.92em; line-height:1.5; }
   .tile .soon { display:inline-block; margin-top:8px; font-size:.8em; border:1px solid var(--line); border-radius:20px; padding:2px 9px; color:var(--muted); }
@@ -64,39 +77,49 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Build your own <span class="j">Metaforge</span> at home, for free</h1>
-  <p class="sub">Everyone wants an AI to run their home. You do not have to be a billionaire in a comic book to build one. This file starts a chat, learns your household, builds a roadmap from what you tell it, and builds itself into a command center.</p>
+  <div class="scroll" id="scrollArea">
+    <h1>Build your own <span class="j">Metaforge</span> at home, for free</h1>
+    <p class="sub">Everyone wants an AI to run their home. You do not have to be a billionaire in a comic book to build one. This file starts a chat, learns your household, builds a roadmap from what you tell it, and builds itself into a command center.</p>
 
-  <div class="card">
-    <div id="chat"></div>
+    <div class="card">
+      <div id="chat"></div>
+      <div class="profiles" id="profiles"></div>
+    </div>
+
+    <div id="center">
+      <h2>Your command center</h2>
+      <p class="goal-line"><b>The goal:</b> a command center that runs your household — briefs, reminders, tools, all local, all yours.</p>
+      <p class="build-status" id="buildStatus"></p>
+      <p class="progress" id="roadmapProgress"></p>
+
+      <div id="roadmap">
+        <h2>Your roadmap</h2>
+        <p class="roadmap-sub">Built from what you told me, in the order you asked for it. Watch it grow.</p>
+        <ol id="roadmapList"></ol>
+      </div>
+
+      <div class="grid">
+        <div class="tile"><h3>Daily brief</h3><p id="tileBrief">A short morning brief for the household, built from what each person asked for.</p><span class="soon" id="briefBadge">On the roadmap</span></div>
+        <div class="tile"><h3>Household profiles</h3><p id="centerProfiles">Profiles live here once the chat builds them.</p><span class="soon">Built from the chat</span></div>
+        <div class="tile"><h3>Tools &amp; plugins</h3><p id="tileTools">Tools join the stack as you ask for them. Each one becomes part of your own Metaforge.</p><span class="soon" id="toolsBadge">On the roadmap</span></div>
+      </div>
+      <div class="card" id="centerChat"><strong>Chat</strong> <span style="color:var(--muted)">— the conversation that started all of this is now just one option inside your command center.</span></div>
+    </div>
+
+    <p class="foot">A tiny file that builds itself. No account, no cloud, no subscription. Your data never leaves this machine. <a href="/files/metaforge?embed=1" download="metaforge.html">Download this file</a> — open it and it works. <a href="https://github.com/GrizzlyBiscuit/metaforge">metaforge</a> · MIT licensed.</p>
+  </div>
+
+  <div class="composer">
+    <p class="hint" id="modelHint">The chat runs on a script, so it works right now with no download. <button id="loadModel" class="ghost" type="button">Load the small AI model</button> <span id="modelState"></span></p>
+    <div class="model-progress" id="modelProgress" hidden>
+      <div class="model-progress-bar"><div id="modelProgressFill"></div></div>
+      <span class="model-progress-label" id="modelProgressLabel"></span>
+    </div>
     <div class="row">
       <input id="input" type="text" placeholder="Type your answer…" autocomplete="off">
       <button id="send">Send</button>
     </div>
-    <p class="hint" id="modelHint">The chat runs on a script, so it works right now with no download. <button id="loadModel" class="ghost" type="button">Load the small AI model</button> <span id="modelState"></span></p>
-    <div class="profiles" id="profiles"></div>
   </div>
-
-  <div id="center">
-    <h2>Your command center</h2>
-    <p class="goal-line"><b>The goal:</b> a command center that runs your household — briefs, reminders, tools, all local, all yours.</p>
-    <p class="progress" id="roadmapProgress"></p>
-
-    <div id="roadmap">
-      <h2>Your roadmap</h2>
-      <p class="roadmap-sub">Built from what you told me, in the order you asked for it. Watch it grow.</p>
-      <ol id="roadmapList"></ol>
-    </div>
-
-    <div class="grid">
-      <div class="tile"><h3>Daily brief</h3><p id="tileBrief">A short morning brief for the household, built from what each person asked for.</p><span class="soon" id="briefBadge">On the roadmap</span></div>
-      <div class="tile"><h3>Household profiles</h3><p id="centerProfiles">Profiles live here once the chat builds them.</p><span class="soon">Built from the chat</span></div>
-      <div class="tile"><h3>Tools &amp; plugins</h3><p id="tileTools">Tools join the stack as you ask for them. Each one becomes part of your own Metaforge.</p><span class="soon" id="toolsBadge">On the roadmap</span></div>
-    </div>
-    <div class="card" id="centerChat"><strong>Chat</strong> <span style="color:var(--muted)">— the conversation that started all of this is now just one option inside your command center.</span></div>
-  </div>
-
-  <p class="foot">A tiny file that builds itself. No account, no cloud, no subscription. Your data never leaves this machine. <a href="https://github.com/GrizzlyBiscuit/metaforge">metaforge</a> · MIT licensed.</p>
 </div>
 
 <script>
@@ -111,8 +134,12 @@
   var centerChatEl = document.getElementById("centerChat");
   var loadModelBtn = document.getElementById("loadModel");
   var modelStateEl = document.getElementById("modelState");
+  var modelProgressEl = document.getElementById("modelProgress");
+  var modelProgressFillEl = document.getElementById("modelProgressFill");
+  var modelProgressLabelEl = document.getElementById("modelProgressLabel");
   var roadmapListEl = document.getElementById("roadmapList");
   var roadmapProgressEl = document.getElementById("roadmapProgress");
+  var buildStatusEl = document.getElementById("buildStatus");
   var tileBriefEl = document.getElementById("tileBrief");
   var tileToolsEl = document.getElementById("tileTools");
   var briefBadgeEl = document.getElementById("briefBadge");
@@ -139,22 +166,66 @@
     chatEl.appendChild(d);
   }
 
-  // --- the optional small model (Transformers.js, Qwen2.5-0.5B-Instruct) ---
+  // --- the optional small model (Transformers.js v3, Qwen2.5-0.5B-Instruct) ---
   // It enhances the chat. The script below is the backbone, so the file
   // works with no download at all. If the model loads, free-text answers
   // get understood instead of just accepted.
+  // v3 reads the onnx-community file layout (model_q4.onnx); v2 looked for
+  // a decoder_model_merged_quantized.onnx that repo does not have, so v2
+  // could never load this model. The model runs on WebGPU when the machine
+  // has it, WASM on any potato — same model file, different device.
+  // Drive the download progress bar from the model file's progress events.
+  // The ONNX model file is ~300 MB and the long pole; the config and
+  // tokenizer files are tiny, so only the ONNX file moves the bar — the
+  // small files just update the label, so the bar never jumps around.
+  function onModelProgress(info){
+    if (!info || !info.file) return;
+    var file = info.file;
+    var short = file.split("/").pop();
+    var pct = null;
+    if (typeof info.progress === "number") pct = info.progress;
+    else if (typeof info.loaded === "number" && typeof info.total === "number" && info.total > 0) pct = 100 * info.loaded / info.total;
+    if (/\.onnx$/i.test(file) && pct !== null) {
+      pct = Math.max(0, Math.min(100, Math.round(pct)));
+      modelProgressFillEl.style.width = pct + "%";
+      var mb = (typeof info.loaded === "number") ? (info.loaded / 1048576).toFixed(0) : "";
+      modelProgressLabelEl.textContent = "Downloading " + short + " — " + pct + "%" + (mb ? " (" + mb + " MB)" : "");
+    } else {
+      modelProgressLabelEl.textContent = "Fetching " + short + "…";
+    }
+  }
+
   loadModelBtn.addEventListener("click", async function(){
     if (model || modelLoading) return;
     modelLoading = true;
     loadModelBtn.disabled = true;
     modelStateEl.textContent = "Loading a tiny model (about 300 MB, cached after the first time)…";
+    modelProgressEl.hidden = false;
+    modelProgressFillEl.style.width = "0%";
+    modelProgressLabelEl.textContent = "Starting download…";
     try {
-      var mod = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2");
-      var pipe = await mod.pipeline("text-generation", "onnx-community/Qwen2.5-0.5B-Instruct");
+      var mod = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2/+esm");
+      var pipe = null;
+      var deviceUsed = "";
+      // WebGPU is the speed upgrade; WASM is the potato fallback.
+      // navigator.gpu present does not guarantee a working context, so try
+      // WebGPU first and fall back to WASM on any failure.
+      var devices = (typeof navigator !== "undefined" && navigator.gpu) ? ["webgpu", "wasm"] : ["wasm"];
+      var lastErr = null;
+      for (var i = 0; i < devices.length; i++) {
+        try {
+          pipe = await mod.pipeline("text-generation", "onnx-community/Qwen2.5-0.5B-Instruct", { dtype: "q4", device: devices[i], progress_callback: onModelProgress });
+          deviceUsed = devices[i];
+          break;
+        } catch (e) { lastErr = e; }
+      }
+      if (!pipe) throw lastErr || new Error("Model could not load on WebGPU or WASM.");
       model = pipe;
-      modelStateEl.textContent = "Model ready. It runs in this browser, on WASM, or WebGPU when the machine has it.";
-      sys("Small model loaded. The chat now understands free-text answers.");
+      modelProgressEl.hidden = true;
+      modelStateEl.textContent = "Model ready on " + deviceUsed.toUpperCase() + ". It runs in this browser — WASM on the weakest machine, WebGPU as a speed upgrade, same model file.";
+      sys("Small model loaded on " + deviceUsed.toUpperCase() + ". The chat now understands free-text answers.");
     } catch (e) {
+      modelProgressEl.hidden = true;
       modelStateEl.textContent = "Model did not load (" + (e && e.message ? e.message : "offline or unsupported") + "). The scripted chat still works.";
     } finally {
       modelLoading = false;
@@ -220,9 +291,17 @@
   }
 
   // The user watches the roadmap assemble, one phase at a time.
+  // Each phase lands with a brief gold forge-glow, then settles.
+  // The progress line counts live as each built phase lands.
   function renderRoadmap(phases){
     roadmapListEl.innerHTML = "";
     var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var total = phases.length;
+    var builtSoFar = 0;
+    function setProgress(){
+      roadmapProgressEl.textContent = "Roadmap — " + builtSoFar + " of " + total + " phases built. The rest is queued, in the order you asked for it.";
+    }
+    setProgress();
     phases.forEach(function(ph, i){
       var li = document.createElement("li");
       li.className = "phase " + ph.status;
@@ -237,8 +316,31 @@
       li.appendChild(t);
       li.appendChild(d);
       roadmapListEl.appendChild(li);
-      if (reduceMotion) { li.classList.add("on"); }
-      else { setTimeout(function(){ li.classList.add("on"); }, 350 * (i + 1)); }
+      function land(){
+        li.classList.add("on");
+        li.classList.add("building");
+        if (ph.status === "built") { builtSoFar++; setProgress(); }
+        setTimeout(function(){ li.classList.remove("building"); }, reduceMotion ? 0 : 600);
+      }
+      if (reduceMotion) { land(); }
+      else { setTimeout(land, 350 * (i + 1)); }
+    });
+  }
+
+  // The tiles wire in one by one after the roadmap, each with the same
+  // forge-glow as it lands, so the command center visibly assembles.
+  function revealTiles(){
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var tiles = [tileBriefEl, centerProfilesEl, tileToolsEl].map(function(el){ return el.closest(".tile"); });
+    tiles.forEach(function(tile, i){
+      if (!tile) return;
+      function land(){
+        tile.classList.add("on");
+        tile.classList.add("building");
+        setTimeout(function(){ tile.classList.remove("building"); }, reduceMotion ? 0 : 600);
+      }
+      if (reduceMotion) { land(); }
+      else { setTimeout(land, 350 * (i + 1)); }
     });
   }
 
@@ -270,16 +372,33 @@
     showProfiles();
     var phases = buildRoadmap();
     fillTiles();
-    var built = phases.filter(function(ph){ return ph.status === "built"; }).length;
-    roadmapProgressEl.textContent = "Roadmap — " + built + " of " + phases.length + " phases built. The rest is queued, in the order you asked for it.";
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var step = reduceMotion ? 0 : 350;
     centerEl.classList.add("on");
+    buildStatusEl.textContent = "Forging the command center…";
     // The chat moves into the command center: it was the start, now it is one option inside it.
     var card = document.querySelector(".card");
     centerChatEl.appendChild(card);
-    renderRoadmap(phases);
+    // The build narrates itself, stage by stage, so the household watches it
+    // assemble and improve: roadmap first, then the tiles wire in.
+    setTimeout(function(){
+      buildStatusEl.textContent = "Building the roadmap…";
+      renderRoadmap(phases);
+    }, step);
+    setTimeout(function(){
+      buildStatusEl.textContent = "Wiring the tiles…";
+      revealTiles();
+    }, step * (phases.length + 2));
+    setTimeout(function(){
+      buildStatusEl.textContent = "Done — your command center is live. The rest is queued in the order you asked for it.";
+    }, step * (phases.length + 6));
     say("Your command center is built. Now watch the roadmap — this is the plan, built from what you told me. The profiles and the center are done. The rest is queued in the order you asked for it.", "bot");
     sys("This is the seed. The roadmap is the plan; each phase you ask for becomes part of your own stack.");
     inputEl.placeholder = "Ask for the next phase…";
+    // Keep the build in view: the roadmap and tiles are the visual payoff,
+    // and the chat's scroll-into-view would otherwise pull the eye to the
+    // bottom while the center is still assembling above it.
+    centerEl.scrollIntoView({ block: "start" });
   }
 
   async function handle(text){
