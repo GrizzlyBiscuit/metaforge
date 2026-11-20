@@ -1,6 +1,6 @@
 # Build your own Metaforge at home, for free
 
-Everyone wants an AI to run their home. You do not have to be a billionaire in a comic book to build one.
+Everybody wants a Jarvis. You do not have to be a billionaire in a comic book to build one.
 
 This file starts a chat, learns your household, builds a profile for each person, builds a roadmap from the conversation, then builds itself into a command center. From one click to a home AI with RSI, for free.
 
