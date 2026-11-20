@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Metaforge — build your own, at home, for free</title>
+<style>
+  :root { --bg:#141210; --panel:#1e1a17; --panel2:#262019; --ink:#f3ead9; --muted:#b8a88f; --line:#3a3128; --gold:#e8a33d; --green:#7fb069; --rose:#b5525f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .wrap { max-width:860px; margin:0 auto; padding:28px 18px 60px; }
+  h1 { font-size:1.6em; margin:0 0 4px; }
+  h1 .j { color:var(--gold); }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  /* chat */
+  #chat { display:flex; flex-direction:column; gap:10px; min-height:280px; }
+  .msg { max-width:85%; padding:10px 13px; border-radius:12px; line-height:1.5; white-space:pre-wrap; }
+  .msg.bot { background:var(--panel2); border:1px solid var(--line); align-self:flex-start; border-bottom-left-radius:4px; }
+  .msg.user { background:#2c2417; border:1px solid var(--gold); align-self:flex-end; border-bottom-right-radius:4px; }
+  .msg.sys { background:transparent; border:1px dashed var(--line); color:var(--muted); align-self:center; font-size:.9em; }
+  .row { display:flex; gap:8px; margin-top:14px; }
+  input[type=text] { flex:1; background:#0f0d0b; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:11px 12px; font-size:1em; }
+  input[type=text]:focus { outline:2px solid var(--gold); outline-offset:0; border-color:var(--gold); }
+  button { background:var(--gold); color:#1a1206; border:0; border-radius:10px; padding:11px 16px; font-weight:700; cursor:pointer; font-size:1em; }
+  button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:default; }
+  .hint { color:var(--muted); font-size:.88em; margin-top:10px; }
+  .hint button { padding:4px 10px; font-size:.9em; }
+  /* profiles */
+  .profiles { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+  .profile { background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px 14px; min-width:180px; flex:1; }
+  .profile h3 { margin:0 0 4px; font-size:1.05em; }
+  .profile p { margin:2px 0; color:var(--muted); font-size:.92em; }
+  .profile .want { color:var(--ink); }
+  /* command center (the file builds itself into this) */
+  #center { display:none; margin-top:22px; }
+  #center.on { display:block; }
+  #center h2 { font-size:1.15em; margin:0 0 10px; }
+  .goal-line { color:var(--muted); margin:0 0 4px; }
+  .goal-line b { color:var(--ink); }
+  .progress { color:var(--gold); font-size:.92em; margin:0 0 18px; }
+  /* roadmap — the plan, built from the conversation, watched as it assembles */
+  #roadmap { margin-bottom:20px; }
+  #roadmapList { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .phase { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px; opacity:0; transform:translateY(6px); transition:opacity .45s ease, transform .45s ease; }
+  .phase.on { opacity:1; transform:none; }
+  .phase .badge { float:right; font-size:.78em; font-weight:700; border:1px solid var(--line); border-radius:20px; padding:2px 9px; color:var(--muted); margin-left:8px; }
+  .phase.built .badge { color:var(--green); border-color:var(--green); }
+  .phase.next .badge { color:var(--gold); border-color:var(--gold); }
+  .phase strong { font-size:1em; }
+  .phase p { margin:4px 0 0; color:var(--muted); font-size:.92em; line-height:1.5; }
+  .roadmap-sub { color:var(--muted); font-size:.92em; margin:0 0 10px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+  .tile { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .tile h3 { margin:0 0 6px; font-size:1em; color:var(--gold); }
+  .tile p { margin:0; color:var(--muted); font-size:.92em; line-height:1.5; }
+  .tile .soon { display:inline-block; margin-top:8px; font-size:.8em; border:1px solid var(--line); border-radius:20px; padding:2px 9px; color:var(--muted); }
+  #centerChat { margin-top:12px; }
+  .foot { color:var(--muted); font-size:.85em; margin-top:26px; text-align:center; }
+  .foot a { color:var(--gold); }
+  @media (prefers-reduced-motion: reduce){ .phase{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Build your own <span class="j">Metaforge</span> at home, for free</h1>
+  <p class="sub">Everyone wants an AI to run their home. You do not have to be a billionaire in a comic book to build one. This file starts a chat, learns your household, builds a roadmap from what you tell it, and builds itself into a command center.</p>
+
+  <div class="card">
+    <div id="chat"></div>
+    <div class="row">
+      <input id="input" type="text" placeholder="Type your answer…" autocomplete="off">
+      <button id="send">Send</button>
+    </div>
+    <p class="hint" id="modelHint">The chat runs on a script, so it works right now with no download. <button id="loadModel" class="ghost" type="button">Load the small AI model</button> <span id="modelState"></span></p>
+    <div class="profiles" id="profiles"></div>
+  </div>
+
+  <div id="center">
+    <h2>Your command center</h2>
+    <p class="goal-line"><b>The goal:</b> a command center that runs your household — briefs, reminders, tools, all local, all yours.</p>
+    <p class="progress" id="roadmapProgress"></p>
+
+    <div id="roadmap">
+      <h2>Your roadmap</h2>
+      <p class="roadmap-sub">Built from what you told me, in the order you asked for it. Watch it grow.</p>
+      <ol id="roadmapList"></ol>
+    </div>
+
+    <div class="grid">
+      <div class="tile"><h3>Daily brief</h3><p id="tileBrief">A short morning brief for the household, built from what each person asked for.</p><span class="soon" id="briefBadge">On the roadmap</span></div>
+      <div class="tile"><h3>Household profiles</h3><p id="centerProfiles">Profiles live here once the chat builds them.</p><span class="soon">Built from the chat</span></div>
+      <div class="tile"><h3>Tools &amp; plugins</h3><p id="tileTools">Tools join the stack as you ask for them. Each one becomes part of your own Metaforge.</p><span class="soon" id="toolsBadge">On the roadmap</span></div>
+    </div>
+    <div class="card" id="centerChat"><strong>Chat</strong> <span style="color:var(--muted)">— the conversation that started all of this is now just one option inside your command center.</span></div>
+  </div>
+
+  <p class="foot">A tiny file that builds itself. No account, no cloud, no subscription. Your data never leaves this machine. <a href="https://github.com/GrizzlyBiscuit/metaforge">metaforge</a> · MIT licensed.</p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var chatEl = document.getElementById("chat");
+  var inputEl = document.getElementById("input");
+  var sendBtn = document.getElementById("send");
+  var profilesEl = document.getElementById("profiles");
+  var centerEl = document.getElementById("center");
+  var centerProfilesEl = document.getElementById("centerProfiles");
+  var centerChatEl = document.getElementById("centerChat");
+  var loadModelBtn = document.getElementById("loadModel");
+  var modelStateEl = document.getElementById("modelState");
+  var roadmapListEl = document.getElementById("roadmapList");
+  var roadmapProgressEl = document.getElementById("roadmapProgress");
+  var tileBriefEl = document.getElementById("tileBrief");
+  var tileToolsEl = document.getElementById("tileTools");
+  var briefBadgeEl = document.getElementById("briefBadge");
+  var toolsBadgeEl = document.getElementById("toolsBadge");
+
+  var state = "welcome";       // welcome -> size -> names -> wants -> done
+  var household = [];          // [{name, want}]
+  var pendingCount = 0;
+  var pendingIndex = 0;
+  var model = null;            // text-generation pipeline, when loaded
+  var modelLoading = false;
+
+  function say(text, who){
+    var d = document.createElement("div");
+    d.className = "msg " + (who || "bot");
+    d.textContent = text;
+    chatEl.appendChild(d);
+    d.scrollIntoView({block:"nearest"});
+  }
+  function sys(text){
+    var d = document.createElement("div");
+    d.className = "msg sys";
+    d.textContent = text;
+    chatEl.appendChild(d);
+  }
+
+  // --- the optional small model (Transformers.js, Qwen2.5-0.5B-Instruct) ---
+  // It enhances the chat. The script below is the backbone, so the file
+  // works with no download at all. If the model loads, free-text answers
+  // get understood instead of just accepted.
+  loadModelBtn.addEventListener("click", async function(){
+    if (model || modelLoading) return;
+    modelLoading = true;
+    loadModelBtn.disabled = true;
+    modelStateEl.textContent = "Loading a tiny model (about 300 MB, cached after the first time)…";
+    try {
+      var mod = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2");
+      var pipe = await mod.pipeline("text-generation", "Xenova/Qwen2.5-0.5B-Instruct");
+      model = pipe;
+      modelStateEl.textContent = "Model ready. It runs in this browser, on WASM, or WebGPU when the machine has it.";
+      sys("Small model loaded. The chat now understands free-text answers.");
+    } catch (e) {
+      modelStateEl.textContent = "Model did not load (" + (e && e.message ? e.message : "offline or unsupported") + "). The scripted chat still works.";
+    } finally {
+      modelLoading = false;
+    }
+  });
+
+  // Ask the model to pull one short answer out of free text.
+  // Returns null when there is no model, so the script path takes over.
+  async function modelExtract(question, text){
+    if (!model) return null;
+    try {
+      var prompt = question + "\nAnswer: " + text + "\nShort answer:";
+      var out = await model(prompt, { max_new_tokens: 24, temperature: 0.2, do_sample: false });
+      var t = (out && out[0] && out[0].generated_text || "").replace(prompt, "").trim().split("\n")[0].trim();
+      return t || null;
+    } catch (e) { return null; }
+  }
+
+  function showProfiles(){
+    profilesEl.innerHTML = "";
+    household.forEach(function(p){
+      var d = document.createElement("div");
+      d.className = "profile";
+      var h = document.createElement("h3"); h.textContent = p.name;
+      var w = document.createElement("p"); w.className = "want"; w.textContent = p.want ? ("Wants: " + p.want) : "Wants: not set yet";
+      d.appendChild(h); d.appendChild(w);
+      profilesEl.appendChild(d);
+    });
+    centerProfilesEl.textContent = household.map(function(p){ return p.name + (p.want ? " — " + p.want : ""); }).join(" · ");
+  }
+
+  // --- the roadmap: the plan, built from the conversation ---
+  // The file knows the end goal (a command center that runs the household)
+  // and builds the road to it from what the household asked for, in order.
+  function buildRoadmap(){
+    var phases = [];
+    phases.push({
+      title: "Household profiles",
+      status: "built",
+      desc: "Built from the chat — " + household.map(function(p){ return p.name; }).join(", ") + "."
+    });
+    phases.push({
+      title: "Command center",
+      status: "built",
+      desc: "The shell is up — tiles, chat, and profiles in one place, ready for the first tool."
+    });
+    household.forEach(function(p, i){
+      var want = (p.want || "").trim();
+      var title = want ? want.charAt(0).toUpperCase() + want.slice(1) : ("Something for " + p.name);
+      if (title.length > 80) title = title.slice(0, 77) + "…";
+      phases.push({
+        title: title,
+        status: i === 0 ? "next" : "queued",
+        desc: "For " + p.name + " — " + (i === 0 ? "the first thing the household asked for." : "queued after the first build.")
+      });
+    });
+    phases.push({
+      title: "The full command center",
+      status: "queued",
+      desc: "The end goal — every phase built and running, all local, all yours."
+    });
+    return phases;
+  }
+
+  // The user watches the roadmap assemble, one phase at a time.
+  function renderRoadmap(phases){
+    roadmapListEl.innerHTML = "";
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    phases.forEach(function(ph, i){
+      var li = document.createElement("li");
+      li.className = "phase " + ph.status;
+      var badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = ph.status === "built" ? "Built" : ph.status === "next" ? "Next" : "Queued";
+      var t = document.createElement("strong");
+      t.textContent = ph.title;
+      var d = document.createElement("p");
+      d.textContent = ph.desc;
+      li.appendChild(badge);
+      li.appendChild(t);
+      li.appendChild(d);
+      roadmapListEl.appendChild(li);
+      if (reduceMotion) { li.classList.add("on"); }
+      else { setTimeout(function(){ li.classList.add("on"); }, 350 * (i + 1)); }
+    });
+  }
+
+  // The tiles carry the conversation, not placeholders.
+  function fillTiles(){
+    var briefWant = null, briefName = null;
+    household.forEach(function(p){
+      if (!briefWant && /brief/i.test(p.want || "")) { briefWant = p.want; briefName = p.name; }
+    });
+    if (briefWant) {
+      tileBriefEl.textContent = "For " + briefName + " — " + briefWant + ". It is on the roadmap, first in the queue.";
+      briefBadgeEl.textContent = "On the roadmap";
+    } else {
+      tileBriefEl.textContent = "The household's morning in one place. Ask for a brief and it joins the roadmap.";
+      briefBadgeEl.textContent = "Ask for one";
+    }
+    var wants = household.map(function(p){ return p.want ? p.want : null; }).filter(function(w){ return w; });
+    if (wants.length) {
+      tileToolsEl.textContent = "First tools: " + wants.join(" · ") + ". Each one becomes part of your stack as it is built.";
+      toolsBadgeEl.textContent = wants.length + " queued";
+    } else {
+      tileToolsEl.textContent = "Tools join the stack as you ask for them. Each one becomes part of your own Metaforge.";
+      toolsBadgeEl.textContent = "On the roadmap";
+    }
+  }
+
+  function finish(){
+    state = "done";
+    showProfiles();
+    var phases = buildRoadmap();
+    fillTiles();
+    var built = phases.filter(function(ph){ return ph.status === "built"; }).length;
+    roadmapProgressEl.textContent = "Roadmap — " + built + " of " + phases.length + " phases built. The rest is queued, in the order you asked for it.";
+    centerEl.classList.add("on");
+    // The chat moves into the command center: it was the start, now it is one option inside it.
+    var card = document.querySelector(".card");
+    centerChatEl.appendChild(card);
+    renderRoadmap(phases);
+    say("Your command center is built. Now watch the roadmap — this is the plan, built from what you told me. The profiles and the center are done. The rest is queued in the order you asked for it.", "bot");
+    sys("This is the seed. The roadmap is the plan; each phase you ask for becomes part of your own stack.");
+    inputEl.placeholder = "Ask for the next phase…";
+  }
+
+  async function handle(text){
+    var t = text.trim();
+    if (!t) return;
+    say(t, "user");
+    if (state === "welcome") {
+      say("Great. First, how many people live in your household? Just a number.");
+      state = "size";
+      return;
+    }
+    if (state === "size") {
+      var n = parseInt(t.replace(/[^0-9]/g, ""), 10);
+      if (!n || n < 1 || n > 20) { say("Give me a number between 1 and 20 — how many people live there?"); return; }
+      pendingCount = n;
+      household = [];
+      pendingIndex = 0;
+      if (n === 1) { say("Just you. What is your name?"); }
+      else { say("Got it, " + n + " people. What is the first person's name?"); }
+      state = "names";
+      return;
+    }
+    if (state === "names") {
+      var name = t.split(",")[0].trim().replace(/\s+and\s+.*/i, "").trim();
+      if (!name) { say("What name should I use?"); return; }
+      name = name.charAt(0).toUpperCase() + name.slice(1);
+      household.push({ name: name, want: "" });
+      pendingIndex++;
+      if (pendingIndex < pendingCount) {
+        say("Nice to meet " + name + ". Who is next?");
+      } else {
+        pendingIndex = 0;
+        say("Now one thing for each of you. What should your Metaforge help " + household[0].name + " with most? (For example: a morning brief, reminders, keeping track of the house.)");
+        state = "wants";
+      }
+      return;
+    }
+    if (state === "wants") {
+      var p = household[pendingIndex];
+      var cleaned = t;
+      var extracted = await modelExtract("What does this person want their Metaforge to help with, in a few words?", t);
+      if (extracted) cleaned = extracted;
+      p.want = cleaned;
+      pendingIndex++;
+      if (pendingIndex < household.length) {
+        say("Got it. And what should it help " + household[pendingIndex].name + " with most?");
+      } else {
+        showProfiles();
+        say("Here are your household profiles. If they look right, say yes and I will build your command center and the roadmap around them.");
+        state = "confirm";
+      }
+      return;
+    }
+    if (state === "confirm") {
+      if (/^(y|yes|yeah|yep|looks good|good|ok|okay|sure)/i.test(t)) { finish(); return; }
+      // A name change is applied, not just promised: "change the name to Matthew"
+      // or "change Matt's name to Matthew". Stays in confirm so the user can say yes.
+      var m = t.match(/change\s+(?:(?:(\w+)'s|the)\s+)?name\s+to\s+([A-Za-z][A-Za-z '\-]*)/i);
+      if (m) {
+        var target = m[1];
+        var newName = m[2].trim();
+        newName = newName.charAt(0).toUpperCase() + newName.slice(1);
+        var person = null;
+        if (target) {
+          person = household.filter(function(p){ return p.name.toLowerCase() === target.toLowerCase(); })[0] || null;
+        }
+        if (!person) person = household[household.length - 1];
+        person.name = newName;
+        showProfiles();
+        say("Done — " + newName + ". Anything else to change, or say yes and I will build your command center and the roadmap.");
+        return;
+      }
+      say("Tell me what to change — a name, or what someone wants — and I will fix it, then we build.");
+      state = "wants";
+      pendingIndex = 0;
+      say("What should your Metaforge help " + household[0].name + " with most?");
+      return;
+    }
+    if (state === "done") {
+      say("Your roadmap is the plan. Tell me what to build next — a brief, a reminder, a tool — and I will add it to the roadmap and build it in.");
+      return;
+    }
+  }
+
+  function send(){
+    var v = inputEl.value;
+    inputEl.value = "";
+    inputEl.focus();
+    handle(v);
+  }
+  sendBtn.addEventListener("click", send);
+  inputEl.addEventListener("keydown", function(e){ if (e.key === "Enter") send(); });
+
+  say("Hi. I am Metaforge. The goal is a command center that runs your household — briefs, reminders, tools, all local, all yours. I will ask a few questions, then build the roadmap to get there. Ready to start? Say hello, or just say yes.");
+  inputEl.focus();
+})();
+</script>
+</body>
+</html>
