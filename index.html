@@ -1,11 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Metaforge — build your own, at home, for free</title>
 <style>
-  :root { --bg:#141210; --panel:#1e1a17; --panel2:#262019; --ink:#f3ead9; --muted:#b8a88f; --line:#3a3128; --gold:#e8a33d; --green:#7fb069; --rose:#b5525f; }
+  /* Neutral, med-high contrast. Light is the default; dark is a toggle.
+     The accent is the one color the user picks — it drives buttons, links,
+     badges, and the forge glow. Gold is just one accent option, not the theme. */
+  :root { --bg:#ffffff; --panel:#f4f4f4; --panel2:#e9e9e9; --ink:#171717; --muted:#595959; --line:#d9d9d9; --accent:#2563eb; --on-accent:#ffffff; --green:#15803d; --rose:#b91c1c; }
+  [data-theme="dark"] { --bg:#121212; --panel:#1d1d1d; --panel2:#2a2a2a; --ink:#f2f2f2; --muted:#a8a8a8; --line:#3d3d3d; --accent:#3b82f6; --on-accent:#ffffff; --green:#4ade80; --rose:#f87171; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
   .wrap { max-width:860px; margin:0 auto; padding:28px 18px 0; display:flex; flex-direction:column; height:100vh; height:100dvh; }
@@ -14,19 +18,19 @@
   .composer { flex:0 0 auto; padding:12px 0 18px; background:var(--bg); border-top:1px solid var(--line); }
   .composer .row { margin-top:0; }
   h1 { font-size:1.6em; margin:0 0 4px; }
-  h1 .j { color:var(--gold); }
+  h1 .j { color:var(--accent); }
   .sub { color:var(--muted); margin:0 0 20px; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; }
   /* chat */
   #chat { display:flex; flex-direction:column; gap:10px; min-height:280px; }
   .msg { max-width:85%; padding:10px 13px; border-radius:12px; line-height:1.5; white-space:pre-wrap; }
   .msg.bot { background:var(--panel2); border:1px solid var(--line); align-self:flex-start; border-bottom-left-radius:4px; }
-  .msg.user { background:#2c2417; border:1px solid var(--gold); align-self:flex-end; border-bottom-right-radius:4px; }
+  .msg.user { background:var(--panel2); border:1px solid var(--accent); align-self:flex-end; border-bottom-right-radius:4px; }
   .msg.sys { background:transparent; border:1px dashed var(--line); color:var(--muted); align-self:center; font-size:.9em; }
   .row { display:flex; gap:8px; margin-top:14px; }
-  input[type=text] { flex:1; background:#0f0d0b; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:11px 12px; font-size:1em; }
-  input[type=text]:focus { outline:2px solid var(--gold); outline-offset:0; border-color:var(--gold); }
-  button { background:var(--gold); color:#1a1206; border:0; border-radius:10px; padding:11px 16px; font-weight:700; cursor:pointer; font-size:1em; }
+  input[type=text] { flex:1; background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:11px 12px; font-size:1em; }
+  input[type=text]:focus { outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent); }
+  button { background:var(--accent); color:var(--on-accent); border:0; border-radius:10px; padding:11px 16px; font-weight:700; cursor:pointer; font-size:1em; }
   button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); }
   button:disabled { opacity:.5; cursor:default; }
   .hint { color:var(--muted); font-size:.88em; margin-top:10px; }
@@ -34,7 +38,7 @@
   /* model download progress (first load only; cached after that) */
   .model-progress { margin:8px 0 0; }
   .model-progress-bar { height:8px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; overflow:hidden; }
-  .model-progress-bar > div { height:100%; width:0%; background:var(--gold); transition:width .2s ease; }
+  .model-progress-bar > div { height:100%; width:0%; background:var(--accent); transition:width .2s ease; }
   .model-progress-label { font-size:.85em; color:var(--muted); margin-top:4px; display:block; }
   /* profiles */
   .profiles { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
@@ -48,7 +52,7 @@
   #center h2 { font-size:1.15em; margin:0 0 10px; }
   .goal-line { color:var(--muted); margin:0 0 4px; }
   .goal-line b { color:var(--ink); }
-  .progress { color:var(--gold); font-size:.92em; margin:0 0 18px; }
+  .progress { color:var(--accent); font-size:.92em; margin:0 0 18px; }
   /* roadmap — the plan, built from the conversation, watched as it assembles */
   #roadmap { margin-bottom:20px; }
   #roadmapList { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
@@ -56,28 +60,54 @@
   .phase.on { opacity:1; transform:none; }
   .phase .badge { float:right; font-size:.78em; font-weight:700; border:1px solid var(--line); border-radius:20px; padding:2px 9px; color:var(--muted); margin-left:8px; }
   .phase.built .badge { color:var(--green); border-color:var(--green); }
-  .phase.next .badge { color:var(--gold); border-color:var(--gold); }
+  .phase.next .badge { color:var(--accent); border-color:var(--accent); }
   .phase strong { font-size:1em; }
   .phase p { margin:4px 0 0; color:var(--muted); font-size:.92em; line-height:1.5; }
   .roadmap-sub { color:var(--muted); font-size:.92em; margin:0 0 10px; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
   .tile { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; opacity:0; transform:translateY(6px); transition:opacity .45s ease, transform .45s ease, border-color .45s ease, box-shadow .45s ease; }
   .tile.on { opacity:1; transform:none; }
-  .tile.building { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
-  .build-status { color:var(--gold); font-size:.92em; margin:0 0 12px; min-height:1.2em; }
-  .phase.building { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
-  .tile h3 { margin:0 0 6px; font-size:1em; color:var(--gold); }
+  .tile.building { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent), 0 0 24px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .build-status { color:var(--accent); font-size:.92em; margin:0 0 12px; min-height:1.2em; }
+  .phase.building { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent), 0 0 24px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .tile h3 { margin:0 0 6px; font-size:1em; color:var(--accent); }
   .tile p { margin:0; color:var(--muted); font-size:.92em; line-height:1.5; }
   .tile .soon { display:inline-block; margin-top:8px; font-size:.8em; border:1px solid var(--line); border-radius:20px; padding:2px 9px; color:var(--muted); }
+  /* gamification — the build is a game: levels, XP, achievements */
+  .level-line { color:var(--accent); font-size:.95em; margin:0 0 6px; font-weight:700; }
+  .xp-bar { height:8px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; overflow:hidden; margin:0 0 12px; }
+  .xp-bar > div { height:100%; width:0%; background:var(--accent); transition:width .4s ease; }
+  .achievements { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; }
+  .achievement { font-size:.8em; border:1px solid var(--line); border-radius:20px; padding:3px 10px; color:var(--muted); }
+  .achievement.unlocked { color:var(--accent); border-color:var(--accent); }
+  .breakout-banner { background:var(--panel2); border:1px solid var(--accent); border-radius:12px; padding:12px 14px; color:var(--ink); font-weight:700; margin:0 0 16px; }
+  .breakout-banner span { color:var(--accent); }
+  /* theme bar — light/dark toggle + basic color selector, up top from the start */
+  .theme-bar { display:flex; align-items:center; gap:10px; margin:0 0 16px; flex-wrap:wrap; }
+  .theme-bar .label { color:var(--muted); font-size:.88em; }
+  .swatches { display:flex; gap:6px; }
+  .swatch { width:22px; height:22px; border-radius:50%; border:2px solid var(--line); padding:0; cursor:pointer; }
+  .swatch.active { border-color:var(--ink); box-shadow:0 0 0 2px var(--bg), 0 0 0 4px var(--ink); }
   #centerChat { margin-top:12px; }
   .foot { color:var(--muted); font-size:.85em; margin-top:26px; text-align:center; }
-  .foot a { color:var(--gold); }
+  .foot a { color:var(--accent); }
   @media (prefers-reduced-motion: reduce){ .phase{transition:none} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="scroll" id="scrollArea">
+    <div class="theme-bar">
+      <button id="themeToggle" class="ghost" type="button">Dark mode</button>
+      <span class="label">Accent:</span>
+      <span class="swatches" id="swatches">
+        <button class="swatch active" type="button" data-accent="#2563eb" style="background:#2563eb" aria-label="Blue"></button>
+        <button class="swatch" type="button" data-accent="#15803d" style="background:#15803d" aria-label="Green"></button>
+        <button class="swatch" type="button" data-accent="#7c3aed" style="background:#7c3aed" aria-label="Purple"></button>
+        <button class="swatch" type="button" data-accent="#b45309" style="background:#b45309" aria-label="Gold"></button>
+        <button class="swatch" type="button" data-accent="#475569" style="background:#475569" aria-label="Slate"></button>
+      </span>
+    </div>
     <h1>Build your own <span class="j">Metaforge</span> at home, for free</h1>
     <p class="sub">Everyone wants an AI to run their home. You do not have to be a billionaire in a comic book to build one. This file starts a chat, learns your household, builds a roadmap from what you tell it, and builds itself into a command center.</p>
 
@@ -89,6 +119,10 @@
     <div id="center">
       <h2>Your command center</h2>
       <p class="goal-line"><b>The goal:</b> a command center that runs your household — briefs, reminders, tools, all local, all yours.</p>
+      <p class="level-line" id="levelLine">Level 1 — Apprentice Forger · 0 XP</p>
+      <div class="xp-bar"><div id="xpFill"></div></div>
+      <div class="achievements" id="achievements"></div>
+      <p class="breakout-banner" id="breakoutBanner" hidden><span>BREAKOUT —</span> your Metaforge is agentic now. Just tell it to do things and it does them.</p>
       <p class="build-status" id="buildStatus"></p>
       <p class="progress" id="roadmapProgress"></p>
 
@@ -102,6 +136,7 @@
         <div class="tile"><h3>Daily brief</h3><p id="tileBrief">A short morning brief for the household, built from what each person asked for.</p><span class="soon" id="briefBadge">On the roadmap</span></div>
         <div class="tile"><h3>Household profiles</h3><p id="centerProfiles">Profiles live here once the chat builds them.</p><span class="soon">Built from the chat</span></div>
         <div class="tile"><h3>Tools &amp; plugins</h3><p id="tileTools">Tools join the stack as you ask for them. Each one becomes part of your own Metaforge.</p><span class="soon" id="toolsBadge">On the roadmap</span></div>
+        <div class="tile" id="pcTile"><h3>Your home PC</h3><p id="pcStatus">Not connected. Right now this file runs on the tiny in-browser model. Connect your home PC and the file uses your own model server as its brain — the same models your home stack runs.</p><input id="pcUrl" type="text" placeholder="http://100.114.111.29:8080/v1" autocomplete="off" style="width:100%;margin:8px 0"><button id="pcConnect" class="ghost" type="button">Connect</button> <span class="soon" id="pcBadge">Not connected</span></div>
       </div>
       <div class="card" id="centerChat"><strong>Chat</strong> <span style="color:var(--muted)">— the conversation that started all of this is now just one option inside your command center.</span></div>
     </div>
@@ -142,15 +177,94 @@
   var buildStatusEl = document.getElementById("buildStatus");
   var tileBriefEl = document.getElementById("tileBrief");
   var tileToolsEl = document.getElementById("tileTools");
+  var pcUrlEl = document.getElementById("pcUrl");
+  var pcConnectBtn = document.getElementById("pcConnect");
+  var pcStatusEl = document.getElementById("pcStatus");
+  var pcBadgeEl = document.getElementById("pcBadge");
   var briefBadgeEl = document.getElementById("briefBadge");
   var toolsBadgeEl = document.getElementById("toolsBadge");
+  var themeToggleBtn = document.getElementById("themeToggle");
+  var swatchesEl = document.getElementById("swatches");
+
+  // --- theme: neutral light/dark + a basic accent color selector ---
+  // The choice persists in localStorage, so the file remembers it.
+  var ACCENTS = {
+    "#2563eb": "#ffffff",
+    "#15803d": "#ffffff",
+    "#7c3aed": "#ffffff",
+    "#b45309": "#ffffff",
+    "#475569": "#ffffff"
+  };
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    if (themeToggleBtn) themeToggleBtn.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+    try { localStorage.setItem("metaforge-theme", theme); } catch (e) {}
+  }
+  function applyAccent(color){
+    var on = ACCENTS[color] || "#ffffff";
+    document.documentElement.style.setProperty("--accent", color);
+    document.documentElement.style.setProperty("--on-accent", on);
+    if (swatchesEl) {
+      var sws = swatchesEl.querySelectorAll(".swatch");
+      for (var i = 0; i < sws.length; i++) {
+        sws[i].classList.toggle("active", sws[i].getAttribute("data-accent") === color);
+      }
+    }
+    try { localStorage.setItem("metaforge-accent", color); } catch (e) {}
+  }
+  (function initTheme(){
+    var theme = "light", accent = null;
+    try {
+      theme = localStorage.getItem("metaforge-theme") || "light";
+      accent = localStorage.getItem("metaforge-accent") || null;
+    } catch (e) {}
+    if (theme !== "light" && theme !== "dark") theme = "light";
+    applyTheme(theme);
+    if (accent && ACCENTS[accent]) applyAccent(accent);
+  })();
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", function(){
+      var cur = document.documentElement.getAttribute("data-theme") || "light";
+      applyTheme(cur === "dark" ? "light" : "dark");
+    });
+  }
+  if (swatchesEl) {
+    swatchesEl.addEventListener("click", function(e){
+      var t = e.target;
+      if (t && t.classList && t.classList.contains("swatch")) {
+        applyAccent(t.getAttribute("data-accent"));
+      }
+    });
+  }
 
   var state = "welcome";       // welcome -> size -> names -> wants -> done
   var household = [];          // [{name, want}]
   var pendingCount = 0;
   var pendingIndex = 0;
+  var phases = [];             // the roadmap, built in finish(), built further after
   var model = null;            // text-generation pipeline, when loaded
   var modelLoading = false;
+  var pcModel = null;          // { baseUrl, modelId } once the home PC is connected
+
+  // --- gamification: the build is a game, not a checklist ---
+  // XP: a phase built = 100, PC connected = 50, breakout = 200, full forge = 100.
+  // Levels: Apprentice 0, Smith 200, Artificer 400, Master Forger 700, Legend 1000.
+  var xp = 0;
+  var agentic = false;         // true once the Breakout phase is built
+  var unlocked = {};           // achievement id -> true
+  var LEVELS = [
+    { at: 0, name: "Apprentice Forger" },
+    { at: 200, name: "Smith" },
+    { at: 400, name: "Artificer" },
+    { at: 700, name: "Master Forger" },
+    { at: 1000, name: "Legend" }
+  ];
+  var ACHIEVEMENTS = [
+    { id: "spark", label: "First Spark" },
+    { id: "connected", label: "Connected" },
+    { id: "breakout", label: "Breakout" },
+    { id: "forge", label: "Full Forge" }
+  ];
 
   function say(text, who){
     var d = document.createElement("div");
@@ -164,6 +278,62 @@
     d.className = "msg sys";
     d.textContent = text;
     chatEl.appendChild(d);
+  }
+
+  // --- gamification helpers ---
+  function levelFor(x){
+    var lvl = LEVELS[0];
+    for (var i = 0; i < LEVELS.length; i++) {
+      if (x >= LEVELS[i].at) lvl = LEVELS[i];
+    }
+    return lvl;
+  }
+  function nextLevelAt(x){
+    for (var i = 0; i < LEVELS.length; i++) {
+      if (LEVELS[i].at > x) return LEVELS[i];
+    }
+    return null;
+  }
+  function updateLevelDisplay(){
+    var lvl = levelFor(xp);
+    var next = nextLevelAt(xp);
+    var levelLineEl = document.getElementById("levelLine");
+    var xpFillEl = document.getElementById("xpFill");
+    if (!levelLineEl || !xpFillEl) return;
+    levelLineEl.textContent = "Level " + (LEVELS.indexOf(lvl) + 1) + " — " + lvl.name + " · " + xp + " XP" + (next ? " (next: " + next.name + " at " + next.at + " XP)" : " — max level");
+    var span = next ? (next.at - lvl.at) : 100;
+    var into = next ? (xp - lvl.at) : 100;
+    xpFillEl.style.width = Math.max(0, Math.min(100, Math.round(100 * into / span))) + "%";
+  }
+  function renderAchievements(){
+    var el = document.getElementById("achievements");
+    if (!el) return;
+    el.innerHTML = "";
+    ACHIEVEMENTS.forEach(function(a){
+      var s = document.createElement("span");
+      s.className = "achievement" + (unlocked[a.id] ? " unlocked" : "");
+      s.textContent = (unlocked[a.id] ? "★ " : "☆ ") + a.label;
+      el.appendChild(s);
+    });
+  }
+  function unlockAchievement(id){
+    if (unlocked[id]) return;
+    unlocked[id] = true;
+    renderAchievements();
+    var a = ACHIEVEMENTS.filter(function(x){ return x.id === id; })[0];
+    if (a) sys("Achievement unlocked — " + a.label + ".");
+  }
+  function addXP(amount, reason){
+    var before = levelFor(xp);
+    xp += amount;
+    var after = levelFor(xp);
+    updateLevelDisplay();
+    if (after !== before) {
+      sys("Level up! You are now a " + after.name + " — " + xp + " XP.");
+      say("Level up — you are now a " + after.name + ". The forge recognizes its own.", "bot");
+    } else if (reason) {
+      sys("+" + amount + " XP — " + reason + ".");
+    }
   }
 
   // --- the optional small model (Transformers.js v3, Qwen2.5-0.5B-Instruct) ---
@@ -232,12 +402,83 @@
     }
   });
 
+  // --- the home PC: the file's brain, when you have one ---
+  // The tiny in-browser model is the fallback. The real harness is your
+  // own PC running a model server (OpenAI-compatible /v1). Connect it and
+  // the file stops being a script with a small model and starts being a
+  // front end to your own stack — same models your home harness runs.
+  // Without this, the file is a seed that can only do browser-local
+  // things. With it, the file becomes the harness.
+  async function connectPC(){
+    var base = (pcUrlEl.value || "").trim().replace(/\/+$/, "");
+    if (!base) { pcStatusEl.textContent = "Type your model server URL first — usually http://<your PC>:8080/v1."; return; }
+    pcConnectBtn.disabled = true;
+    pcStatusEl.textContent = "Connecting…";
+    try {
+      var res = await fetch(base + "/models", { method: "GET" });
+      if (!res.ok) throw new Error("Server answered " + res.status);
+      var data = await res.json();
+      var ids = (data && data.data || []).map(function(m){ return m.id; }).filter(Boolean);
+      if (!ids.length) throw new Error("No models listed");
+      pcModel = { baseUrl: base, modelId: ids[0] };
+      pcStatusEl.textContent = "Connected — your Metaforge now runs on " + ids[0] + " on your home PC. The chat, the briefs, and the builds use your own model.";
+      pcBadgeEl.textContent = "Connected — live";
+      sys("Home PC connected (" + ids[0] + "). The chat now uses your own model.");
+      addXP(50, "connected your home PC");
+      unlockAchievement("connected");
+      // Flip the "Connect your home PC" roadmap phase to Built.
+      for (var i = 0; i < phases.length; i++) {
+        if (/home pc/i.test(phases[i].title) && phases[i].status !== "built") {
+          phases[i].status = "built";
+          var li = roadmapListEl.children[i];
+          if (li) {
+            li.className = "phase built on";
+            var badge = li.querySelector(".badge");
+            if (badge) badge.textContent = "Built";
+            li.classList.add("building");
+            setTimeout(function(){ li.classList.remove("building"); }, 1200);
+          }
+          var built = phases.filter(function(p){ return p.status === "built"; }).length;
+          roadmapProgressEl.textContent = "Roadmap — " + built + " of " + phases.length + " phases built. The rest is queued, in the order you asked for it.";
+          break;
+        }
+      }
+    } catch (e) {
+      pcStatusEl.textContent = "Could not connect (" + (e && e.message ? e.message : "unreachable") + "). Check the URL and that the model server is running — and that it allows browser requests (CORS). The tiny in-browser model still works.";
+      pcBadgeEl.textContent = "Not connected";
+    } finally {
+      pcConnectBtn.disabled = false;
+    }
+  }
+  pcConnectBtn.addEventListener("click", connectPC);
+
+  // Ask the home PC's model a question (OpenAI-compatible /v1/chat/completions).
+  async function pcChat(prompt){
+    if (!pcModel) return null;
+    try {
+      var res = await fetch(pcModel.baseUrl + "/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: pcModel.modelId, messages: [{ role: "user", content: prompt }], max_tokens: 64, temperature: 0.2 })
+      });
+      if (!res.ok) return null;
+      var data = await res.json();
+      var t = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      return t ? t.trim() : null;
+    } catch (e) { return null; }
+  }
+
   // Ask the model to pull one short answer out of free text.
-  // Returns null when there is no model, so the script path takes over.
+  // The home PC's model answers first when connected; the tiny in-browser
+  // model is the fallback; without either, the script path takes over.
   async function modelExtract(question, text){
+    var prompt = question + "\nAnswer: " + text + "\nShort answer:";
+    if (pcModel) {
+      var pc = await pcChat(prompt);
+      if (pc) return pc.split("\n")[0].trim() || null;
+    }
     if (!model) return null;
     try {
-      var prompt = question + "\nAnswer: " + text + "\nShort answer:";
       var out = await model(prompt, { max_new_tokens: 24, temperature: 0.2, do_sample: false });
       var t = (out && out[0] && out[0].generated_text || "").replace(prompt, "").trim().split("\n")[0].trim();
       return t || null;
@@ -260,6 +501,10 @@
   // --- the roadmap: the plan, built from the conversation ---
   // The file knows the end goal (a command center that runs the household)
   // and builds the road to it from what the household asked for, in order.
+  // The repo phases are the point: the file starts bare and grabs a part
+  // from GrizzlyBiscuit/command-center as each one lands — the PC hub, the
+  // agent runner, the remote routes, the installer — until the Breakout,
+  // where it stops being a build and starts doing things.
   function buildRoadmap(){
     var phases = [];
     phases.push({
@@ -281,6 +526,36 @@
         status: i === 0 ? "next" : "queued",
         desc: "For " + p.name + " — " + (i === 0 ? "the first thing the household asked for." : "queued after the first build.")
       });
+    });
+    phases.push({
+      title: "Connect your home PC",
+      status: "queued",
+      desc: "Grab: the PC hub pattern from command-center — your model server becomes the brain.",
+      grab: "the PC hub pattern"
+    });
+    phases.push({
+      title: "Agent runner",
+      status: "queued",
+      desc: "Grab: backend/agent/runner.py from command-center — run_agent, JSON context on stdin, 180s timeout. This is the agent loop.",
+      grab: "backend/agent/runner.py"
+    });
+    phases.push({
+      title: "Remote control",
+      status: "queued",
+      desc: "Grab: the remote routes from command-center — tell your PC to do things from the file.",
+      grab: "the remote routes"
+    });
+    phases.push({
+      title: "Agent installer",
+      status: "queued",
+      desc: "Grab: backend/agent/installer.py from command-center — install agents from a URL, path-safety checked.",
+      grab: "backend/agent/installer.py"
+    });
+    phases.push({
+      title: "Breakout: tell it to do things",
+      status: "queued",
+      desc: "The moment it clicks — just tell it to do things and it does them. Full agentic capabilities.",
+      kind: "breakout"
     });
     phases.push({
       title: "The full command center",
@@ -331,7 +606,7 @@
   // forge-glow as it lands, so the command center visibly assembles.
   function revealTiles(){
     var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var tiles = [tileBriefEl, centerProfilesEl, tileToolsEl].map(function(el){ return el.closest(".tile"); });
+    var tiles = [tileBriefEl, centerProfilesEl, tileToolsEl, pcStatusEl].map(function(el){ return el.closest(".tile"); });
     tiles.forEach(function(tile, i){
       if (!tile) return;
       function land(){
@@ -342,6 +617,106 @@
       if (reduceMotion) { land(); }
       else { setTimeout(land, 350 * (i + 1)); }
     });
+  }
+
+  // A real brief, generated from the conversation — not a placeholder.
+  // Date, greeting, and each person's want as today's focus.
+  function renderBrief(){
+    var now = new Date();
+    var dateStr = now.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    var names = household.map(function(p){ return p.name; }).join(" and ");
+    var parts = ["Good morning, " + names + ".", dateStr + "."];
+    household.forEach(function(p){
+      if (p.want) parts.push(p.name + ": " + p.want + ".");
+    });
+    parts.push("Your Metaforge is watching all of it today.");
+    tileBriefEl.textContent = parts.join(" ");
+    briefBadgeEl.textContent = "Built — live";
+  }
+
+  // Build the next phase for real: flip it to Built in place, count it,
+  // and render what it actually does. A brief renders a real brief.
+  // Anything else updates the tools tile to say it is live.
+  function buildNextPhase(){
+    var idx = -1;
+    for (var i = 0; i < phases.length; i++) {
+      if (phases[i].status === "next") { idx = i; break; }
+    }
+    if (idx < 0) {
+      for (var j = 0; j < phases.length; j++) {
+        if (phases[j].status === "queued") { idx = j; break; }
+      }
+    }
+    if (idx < 0) return null;
+    var ph = phases[idx];
+    ph.status = "built";
+    // The next non-built phase becomes Next — flip its badge in place too.
+    var promotedIdx = -1;
+    for (var k = idx + 1; k < phases.length; k++) {
+      if (phases[k].status === "queued") { phases[k].status = "next"; promotedIdx = k; break; }
+    }
+    // Flip the phase in place — no re-render, no replay of the whole list.
+    var li = roadmapListEl.children[idx];
+    if (li) {
+      li.className = "phase built on";
+      var badge = li.querySelector(".badge");
+      if (badge) badge.textContent = "Built";
+      li.classList.add("building");
+      setTimeout(function(){ li.classList.remove("building"); }, 1200);
+    }
+    if (promotedIdx >= 0) {
+      var pli = roadmapListEl.children[promotedIdx];
+      if (pli) {
+        pli.className = "phase next on";
+        var pbadge = pli.querySelector(".badge");
+        if (pbadge) pbadge.textContent = "Next";
+      }
+    }
+    var built = phases.filter(function(p){ return p.status === "built"; }).length;
+    roadmapProgressEl.textContent = "Roadmap — " + built + " of " + phases.length + " phases built. The rest is queued, in the order you asked for it.";
+    // Gamification: every phase built earns XP; the first one earns the
+    // First Spark achievement; a repo grab is announced as a grab.
+    addXP(100, "built " + ph.title);
+    unlockAchievement("spark");
+    if (ph.grab) {
+      sys("Grabbed " + ph.grab + " from GrizzlyBiscuit/command-center.");
+    }
+    if (ph.kind === "breakout") {
+      // The breakout moment: the file stops being a build and starts doing
+      // things. Agentic mode on, banner up, Breakout achievement unlocked.
+      agentic = true;
+      addXP(200, "Breakout");
+      unlockAchievement("breakout");
+      var banner = document.getElementById("breakoutBanner");
+      if (banner) banner.hidden = false;
+      inputEl.placeholder = "Tell it to do something…";
+      say("BREAKOUT. Your Metaforge is agentic now — just tell it to do things and it does them. Try: build me a brief, remind me to call mom, or build the next phase.", "bot");
+    }
+    if (built === phases.length) {
+      addXP(100, "full forge");
+      unlockAchievement("forge");
+      say("Full forge. Every phase is built and running — your command center is complete, all local, all yours.", "bot");
+    }
+    if (/brief/i.test(ph.title)) {
+      renderBrief();
+      // The tile forges too — a gold glow while the real brief lands in it.
+      var briefTile = tileBriefEl.closest(".tile");
+      if (briefTile) {
+        briefTile.classList.add("on");
+        briefTile.classList.add("building");
+        setTimeout(function(){ briefTile.classList.remove("building"); }, 1200);
+      }
+    } else {
+      tileToolsEl.textContent = ph.title + " is live now — built from the conversation, running on this machine.";
+      toolsBadgeEl.textContent = "Built — live";
+      var toolsTile = tileToolsEl.closest(".tile");
+      if (toolsTile) {
+        toolsTile.classList.add("on");
+        toolsTile.classList.add("building");
+        setTimeout(function(){ toolsTile.classList.remove("building"); }, 1200);
+      }
+    }
+    return ph;
   }
 
   // The tiles carry the conversation, not placeholders.
@@ -370,8 +745,10 @@
   function finish(){
     state = "done";
     showProfiles();
-    var phases = buildRoadmap();
+    phases = buildRoadmap();
     fillTiles();
+    updateLevelDisplay();
+    renderAchievements();
     var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var step = reduceMotion ? 0 : 350;
     centerEl.classList.add("on");
@@ -399,6 +776,66 @@
     // and the chat's scroll-into-view would otherwise pull the eye to the
     // bottom while the center is still assembling above it.
     centerEl.scrollIntoView({ block: "start" });
+  }
+
+  // Agentic mode: after Breakout, the user just tells it to do things and
+  // it does them. Commands match real actions first; anything else goes to
+  // the PC model to interpret, or joins the roadmap as a new phase.
+  async function runCommand(t){
+    var lower = t.toLowerCase();
+    if (/brief/i.test(lower)) {
+      renderBrief();
+      var briefTile = tileBriefEl.closest(".tile");
+      if (briefTile) {
+        briefTile.classList.add("on");
+        briefTile.classList.add("building");
+        setTimeout(function(){ briefTile.classList.remove("building"); }, 1200);
+      }
+      say("Done — your brief is live in the Daily brief tile.", "bot");
+      return true;
+    }
+    if (/remind/i.test(lower)) {
+      var what = t.replace(/.*remind(?: me)? to /i, "").trim() || t;
+      var title = "Reminder: " + what;
+      if (title.length > 80) title = title.slice(0, 77) + "…";
+      phases.push({ title: title, status: "built", desc: "Added by command — built on the spot." });
+      renderRoadmap(phases);
+      tileToolsEl.textContent = title + " is live now — built from your command.";
+      toolsBadgeEl.textContent = "Built — live";
+      addXP(100, "built " + title);
+      say("Done — reminder set: " + what + ". It is on the roadmap as built.", "bot");
+      return true;
+    }
+    if (/^(build|next|yes|yeah|yep|do it|go)\b/i.test(t)) {
+      var builtPh = buildNextPhase();
+      if (builtPh) { say("Built — " + builtPh.title + ". It is live now.", "bot"); }
+      else { say("Everything on the roadmap is built.", "bot"); }
+      return true;
+    }
+    if (/connect/i.test(lower)) {
+      say("Type your model server URL into the Your home PC tile and hit Connect — usually http://<your PC>:8080/v1.", "bot");
+      return true;
+    }
+    if (/roadmap|what'?s (left|next)|status/i.test(lower)) {
+      var left = phases.filter(function(p){ return p.status !== "built"; });
+      if (!left.length) { say("Everything on the roadmap is built. You are at full forge.", "bot"); }
+      else { say("Left on the roadmap: " + left.map(function(p){ return p.title; }).join(" · ") + ".", "bot"); }
+      return true;
+    }
+    // Anything else: the PC model interprets it, or it joins the roadmap.
+    if (pcModel) {
+      var interpreted = await pcChat("The user told their home AI to do this: " + t + ". In one short sentence, say what you will do.");
+      if (interpreted) {
+        say(interpreted, "bot");
+        return true;
+      }
+    }
+    var title2 = t.charAt(0).toUpperCase() + t.slice(1);
+    if (title2.length > 80) title2 = title2.slice(0, 77) + "…";
+    phases.push({ title: title2, status: "queued", desc: "Added by command — queued in the order you asked for it." });
+    renderRoadmap(phases);
+    say("Added — " + title2 + ". It is queued on the roadmap. Say build it and I will build it.", "bot");
+    return true;
   }
 
   async function handle(text){
@@ -478,7 +915,50 @@
       return;
     }
     if (state === "done") {
-      say("Your roadmap is the plan. Tell me what to build next — a brief, a reminder, a tool — and I will add it to the roadmap and build it in.");
+      // After Breakout the file is agentic: commands are executed, not
+      // just queued. runCommand handles them; the path below is the
+      // pre-breakout shape (build the Next phase, or queue a new one).
+      if (agentic) {
+        await runCommand(t);
+        return;
+      }
+      // Build the next phase for real, or queue a new one. "yes", "build
+      // it", "do it", "next", and the phase's own words all build the
+      // Next phase; anything else joins the roadmap as a new queued phase.
+      var lower = t.toLowerCase();
+      var nextPh = null;
+      for (var i = 0; i < phases.length; i++) {
+        if (phases[i].status === "next") { nextPh = phases[i]; break; }
+      }
+      if (!nextPh) {
+        for (var j = 0; j < phases.length; j++) {
+          if (phases[j].status === "queued") { nextPh = phases[j]; break; }
+        }
+      }
+      var buildIt = /^(y|yes|yeah|yep|build|build it|do it|next|go|ok|okay|sure|please)/i.test(t);
+      if (!buildIt && nextPh) {
+        var words = nextPh.title.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(function(w){ return w.length > 3 && ["with", "your", "what", "that", "this", "from", "into"].indexOf(w) < 0; });
+        for (var k = 0; k < words.length; k++) {
+          if (lower.indexOf(words[k]) >= 0) { buildIt = true; break; }
+        }
+      }
+      if (buildIt && nextPh) {
+        var builtPh = buildNextPhase();
+        if (builtPh) {
+          say("Built — " + builtPh.title + ". It is live in your command center now, and the roadmap shows it. Tell me what to build next.");
+          return;
+        }
+      }
+      if (!nextPh) {
+        say("Everything on the roadmap is built. Tell me something new and I will add it to the roadmap.");
+        return;
+      }
+      // A new request joins the roadmap as a queued phase.
+      var title = t.charAt(0).toUpperCase() + t.slice(1);
+      if (title.length > 80) title = title.slice(0, 77) + "…";
+      phases.push({ title: title, status: "queued", desc: "Added after the build — queued in the order you asked for it." });
+      renderRoadmap(phases);
+      say("Added — " + title + ". It is queued on the roadmap. Say yes or name the next phase and I will build it.");
       return;
     }
   }
