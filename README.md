@@ -17,7 +17,7 @@ No account. No cloud. No subscription. Nothing leaves the machine the file runs 
 
 ## How it works on a potato
 
-The chat runs on a script, so it works right now with no download. A small model makes it understand free text instead of just accepting answers, and it is optional: click **Load the small AI model** and the file pulls a tiny quantized model (Qwen2.5-0.5B-Instruct, about 300 MB, cached after the first time) that runs in the browser.
+The chat runs on a script, so it works right now with no download. A small model makes it understand free text instead of just accepting answers, and it is optional: click **Load the small AI model** and the file pulls a tiny quantized model (Qwen2.5-0.5B-Instruct, about 750 MB, cached after the first time) that runs in the browser.
 
 - **Level 1 — WASM.** Runs on any machine, even a potato. Slow, but the chat gives short answers, so it feels fine.
 - **Level 2 — WebGPU.** The same model, the same file, no re-download. When the machine has WebGPU the file uses it instead, roughly five to ten times faster.

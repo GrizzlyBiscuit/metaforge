@@ -109,7 +109,7 @@
       </span>
     </div>
     <h1>Build your own <span class="j">Metaforge</span> at home, for free</h1>
-    <p class="sub">Everyone wants an AI to run their home. You do not have to be a billionaire in a comic book to build one. This file starts a chat, learns your household, builds a roadmap from what you tell it, and builds itself into a command center.</p>
+    <p class="sub">Everybody wants a Jarvis. You do not have to be a billionaire in a comic book to build one. This file starts a chat, learns about you, builds a roadmap from what you tell it, and grows into your own capable assistant.</p>
 
     <div class="card">
       <div id="chat"></div>
@@ -118,7 +118,7 @@
 
     <div id="center">
       <h2>Your command center</h2>
-      <p class="goal-line"><b>The goal:</b> an AI companion you grow yourself — one that learns your household and becomes your own capable assistant, all local, all yours.</p>
+      <p class="goal-line"><b>The goal:</b> an AI companion you grow yourself — one that learns about you and becomes your own capable assistant, all local, all yours.</p>
       <p class="level-line" id="levelLine">Level 1 — Apprentice Forger · 0 XP</p>
       <div class="xp-bar"><div id="xpFill"></div></div>
       <div class="achievements" id="achievements"></div>
@@ -345,7 +345,7 @@
   // could never load this model. The model runs on WebGPU when the machine
   // has it, WASM on any potato — same model file, different device.
   // Drive the download progress bar from the model file's progress events.
-  // The ONNX model file is ~300 MB and the long pole; the config and
+  // The ONNX model file is ~750 MB and the long pole; the config and
   // tokenizer files are tiny, so only the ONNX file moves the bar — the
   // small files just update the label, so the bar never jumps around.
   function onModelProgress(info){
@@ -369,7 +369,7 @@
     if (model || modelLoading) return;
     modelLoading = true;
     loadModelBtn.disabled = true;
-    modelStateEl.textContent = "Loading a tiny model (about 300 MB, cached after the first time)…";
+    modelStateEl.textContent = "Loading a tiny model (about 750 MB, cached after the first time)…";
     modelProgressEl.hidden = false;
     modelProgressFillEl.style.width = "0%";
     modelProgressLabelEl.textContent = "Starting download…";
@@ -972,7 +972,7 @@
   sendBtn.addEventListener("click", send);
   inputEl.addEventListener("keydown", function(e){ if (e.key === "Enter") send(); });
 
-  say("Hi. I'm Metaforge — the seed of an AI companion you grow yourself. I start small: I'll ask a few questions, learn your household, and we'll build the road to me becoming your own capable assistant. Ready to start growing me? Say hello, or just say yes.");
+  say("Hi. I'm Metaforge — the seed of an AI companion you grow yourself. I start small: I'll ask a few questions, learn about you, and we'll build the road to me becoming your own capable assistant. Ready to start growing me? Say hello, or just say yes.");
   inputEl.focus();
 })();
 </script>
