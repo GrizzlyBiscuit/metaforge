@@ -38,6 +38,10 @@ The file is the seed. It grows, level by level, into your own capable assistant.
 
 Each level is a step up, not a restart. The file you start with is the file that grows.
 
+## The files it keeps
+
+When Metaforge moves onto a PC it lives there, and the first thing it does is write its own files: `agent.md` (who it is), `memories.md` (what it has learned), `user.md` (the people it serves), `rules.md` (the standing orders), `worklog.md` (what it has done, in order). The canonical templates are in this repo; the file writes the running copies from everything it knows — the model deduces what fits where when one is connected, and in a browser "write my files" downloads them. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## The method
 
 Higher-level engineering through AI prompting. You do not have to know how to code to code anymore — you have to carry a concept end to end through a metaphor. A metaphor holds the design in one image. Hold it steady and the model builds from it; let it drift and the build drifts. Anyone who can think clearly in metaphors can build. See [docs/METHOD.md](docs/METHOD.md).
@@ -48,7 +52,7 @@ Higher-level engineering through AI prompting. You do not have to know how to co
 
 ## Status
 
-Beginning. The file is the seed and it works: the chat, the profiles, the roadmap, the command-center build-out, and open chat with the small model are in `index.html`. The scheduled briefs, the tools, and the higher levels are next. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for what is built and what is next.
+Beginning. The file is the seed and it works: the chat, the profiles, the roadmap, the command-center build-out, open chat with the small model, remembering across sessions, and the five files it writes about itself are in `index.html`. The scheduled briefs, the tools, and the higher levels are next. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for what is built and what is next.
 
 ## License
 

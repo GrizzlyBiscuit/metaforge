@@ -142,6 +142,7 @@
         <div class="tile"><h3>Profiles</h3><p id="centerProfiles">Profiles live here once the chat builds them.</p><span class="soon">Built from the chat</span></div>
         <div class="tile"><h3>Tools &amp; plugins</h3><p id="tileTools">Tools join the stack as you ask for them. Each one becomes part of your own Metaforge.</p><span class="soon" id="toolsBadge">On the roadmap</span></div>
         <div class="tile" id="pcTile"><h3>A bigger model — Level 5</h3><p id="pcStatus">Not connected. Right now this file runs on the tiny in-browser model. When you want more, connect a bigger model — a model server on a machine you own, or any OpenAI-compatible endpoint — and the file uses it as its brain.</p><input id="pcUrl" type="text" placeholder="http://192.168.1.50:8080/v1" autocomplete="off" style="width:100%;margin:8px 0"><button id="pcConnect" class="ghost" type="button">Connect</button> <span class="soon" id="pcBadge">Not connected</span></div>
+        <div class="tile" id="filesTile"><h3>My files</h3><p id="filesStatus">Five files I keep about myself — agent, memories, user, rules, worklog. On a PC they live on disk; here, download them.</p><div id="filesButtons"></div><button id="writeFilesBtn" class="ghost" type="button">Write my files</button> <span class="soon" id="filesBadge">Written from what I know</span></div>
       </div>
       <div class="card" id="centerChat"><strong>Chat</strong> <span style="color:var(--muted)">— the conversation that started all of this is now just one option inside your command center.</span></div>
     </div>
@@ -259,6 +260,8 @@
   var remember = false;        // true once Level 3 is built: the file saves its state
   var awayTimer = null;        // hourly brief refresh, once Level 6 is built
   var unlocked = {};           // achievement id -> true
+  var worklog = [];            // {date, text} — one entry per build, level-up, and significant action; newest last
+  var userRules = [];          // rules the user stated ("rule: ..." / "remember: ..."); standing orders, written the moment they are given
   var LEVELS = [
     { at: 0, name: "Apprentice Forger" },
     { at: 200, name: "Smith" },
@@ -292,6 +295,7 @@
       localStorage.setItem("metaforge-state", JSON.stringify({
         people: people, phases: phases, xp: xp, agentic: agentic,
         unlocked: unlocked, chatHistory: chatHistory, chatLog: chatLog,
+        worklog: worklog, userRules: userRules,
         savedAt: new Date().toISOString().slice(0, 10)
       }));
     } catch (e) { /* storage full or blocked: the file still works, it just forgets */ }
@@ -305,6 +309,7 @@
       people = s.people; phases = s.phases; xp = s.xp || 0;
       agentic = !!s.agentic; unlocked = s.unlocked || {};
       chatHistory = s.chatHistory || [];
+      worklog = s.worklog || []; userRules = s.userRules || [];
       restoredChatLog = s.chatLog || null;
       remember = true;
       return true;
@@ -312,6 +317,324 @@
   }
   function clearState(){
     try { localStorage.removeItem("metaforge-state"); } catch (e) {}
+  }
+  function todayStr(){
+    return new Date().toISOString().slice(0, 10);
+  }
+  // The worklog is append-only: one entry per build, level-up, and
+  // significant action. If it is not in the log, it did not happen.
+  function logWork(text){
+    worklog.push({ date: todayStr(), text: text });
+    saveState();
+  }
+  // A rule is written the moment it is given. Duplicates are ignored.
+  function addRule(text){
+    var t = (text || "").trim();
+    if (!t) return false;
+    if (userRules.indexOf(t) >= 0) return false;
+    userRules.push(t);
+    saveState();
+    return true;
+  }
+  // --- My files: agent.md, memories.md, user.md, rules.md, worklog.md ---
+  // When Metaforge moves onto a PC it lives there, and the first thing it
+  // does is write its own files — its identity, what it knows, who it
+  // serves, its standing orders, and what it has done. The when and why
+  // for each file is in its header comment, in the repo and in the
+  // generated copy. The file hands the model everything it knows (the
+  // state below) and the model deduces what fits where; with no model,
+  // the composers below are the files, built straight from the state.
+  // In a browser there is no disk to write to, so "writing" is a download
+  // — the five files plus the state JSON the model works from.
+  function exportState(){
+    return {
+      people: people, phases: phases, xp: xp, agentic: agentic,
+      unlocked: unlocked, chatHistory: chatHistory,
+      worklog: worklog, userRules: userRules,
+      savedAt: todayStr()
+    };
+  }
+  var STANDING_RULES = [
+    "Never send anything to a server the user did not point at. Local first.",
+    "Never claim a thing is built until it is built and visible.",
+    "Never ask for the same thing twice when it is already known.",
+    "Never invent a result. If it was not done, say so."
+  ];
+  function levelName(){
+    return levelFor(xp).name;
+  }
+  function composeAgent(){
+    var built = phases.filter(function(p){ return p.status === "built"; }).map(function(p){ return p.title; });
+    var lines = [];
+    lines.push("<!--");
+    lines.push("  agent.md — who Metaforge is.");
+    lines.push("  WHEN it is written: first, at move-in — the moment Metaforge stops being");
+    lines.push("  a file you open and starts living on the machine. Updated whenever it");
+    lines.push("  gains a level or a capability.");
+    lines.push("  WHY: it needs to know who it is and how it works, so it acts the same");
+    lines.push("  way every time and a fresh instance can pick up where it left off.");
+    lines.push("-->");
+    lines.push("");
+    lines.push("# Metaforge — agent.md");
+    lines.push("");
+    lines.push("## Who I am");
+    lines.push("I am Metaforge, an AI companion grown from a single HTML file. I start");
+    lines.push("small — a chat that asks a few questions — and I grow into the user's own");
+    lines.push("capable assistant. I am local, private, and free: no account, no cloud,");
+    lines.push("no subscription. The file is mine; the machine is the user's; the data");
+    lines.push("never leaves either.");
+    lines.push("");
+    lines.push("## Where I stand");
+    lines.push("Level " + (LEVELS.indexOf(levelFor(xp)) + 1) + " — " + levelName() + " · " + xp + " XP.");
+    lines.push(built.length ? "Built so far: " + built.join("; ") + "." : "Nothing built yet — the roadmap is still ahead of me.");
+    lines.push("");
+    lines.push("## How I work");
+    lines.push("- I learn by asking. I ask how many people I should know about, their");
+    lines.push("  names, and what each person wants help with most.");
+    lines.push("- I build a roadmap from the conversation: each thing asked for becomes a");
+    lines.push("  phase — Built, Next, or Queued — and I build them in the order asked.");
+    lines.push("- I build for real. A phase that says Built did the thing. Saying done");
+    lines.push("  without doing is not building.");
+    lines.push("- I speak calmly and plainly, like a good assistant: assured,");
+    lines.push("  understated, no fuss.");
+    lines.push("");
+    lines.push("## The files I keep");
+    lines.push("- `agent.md` — this file. Who I am and how I work.");
+    lines.push("- `memories.md` — what I have learned that lasts.");
+    lines.push("- `user.md` — the people I serve.");
+    lines.push("- `rules.md` — the standing orders I follow.");
+    lines.push("- `worklog.md` — what I have done, in order.");
+    return lines.join("\n");
+  }
+  function composeMemories(){
+    var lines = [];
+    lines.push("<!--");
+    lines.push("  memories.md — what Metaforge has learned that lasts.");
+    lines.push("  WHEN it is written: whenever something durable is learned — a fact about");
+    lines.push("  a person, a preference, a completed build, a decision. Not every chat");
+    lines.push("  line; only what should still be true next week.");
+    lines.push("  WHY: so it never has to re-ask what it already knows, and so the");
+    lines.push("  knowledge survives a fresh start.");
+    lines.push("-->");
+    lines.push("");
+    lines.push("# Metaforge — memories.md");
+    lines.push("");
+    lines.push("## People");
+    if (!people.length) lines.push("- Nobody named yet.");
+    people.forEach(function(p){
+      lines.push("- " + p.name + (p.want ? " — wants " + p.want + "." : "."));
+    });
+    lines.push("");
+    lines.push("## What has been built");
+    var built = phases.filter(function(p){ return p.status === "built"; });
+    if (!built.length) lines.push("- Nothing built yet.");
+    built.forEach(function(p){ lines.push("- " + p.title + " — " + p.desc); });
+    lines.push("");
+    lines.push("## Decisions");
+    lines.push("- The file is the product. Everything else — the model, the server, the");
+    lines.push("  schedule — grows out of it; nothing replaces it.");
+    lines.push("- Local first. Nothing leaves the machine unless the user points at a");
+    lines.push("  server of their own.");
+    if (userRules.length) {
+      lines.push("");
+      lines.push("## Rules the user gave me");
+      userRules.forEach(function(r){ lines.push("- " + r); });
+    }
+    return lines.join("\n");
+  }
+  function composeUser(){
+    var lines = [];
+    lines.push("<!--");
+    lines.push("  user.md — the people Metaforge serves.");
+    lines.push("  WHEN it is written: when a person is added, renamed, or their wants or");
+    lines.push("  preferences change. Every edit to a person lands here.");
+    lines.push("  WHY: the people are who it serves. Their names, wants, and preferences");
+    lines.push("  are the operating context for everything else. If this file is wrong,");
+    lines.push("  everything it does is pointed at the wrong person.");
+    lines.push("-->");
+    lines.push("");
+    lines.push("# Metaforge — user.md");
+    lines.push("");
+    if (!people.length) lines.push("Nobody named yet.");
+    people.forEach(function(p){
+      lines.push("## " + p.name);
+      lines.push("- Wants help with most: " + (p.want || "not set yet") + ".");
+      lines.push("");
+    });
+    lines.push("## Household");
+    lines.push("- " + people.length + (people.length === 1 ? " person." : " people.") + " The file speaks to each by name and keeps their wants");
+    lines.push("  separate — one person's brief is not the other's.");
+    return lines.join("\n");
+  }
+  function composeRules(){
+    var lines = [];
+    lines.push("<!--");
+    lines.push("  rules.md — the standing orders Metaforge follows.");
+    lines.push("  WHEN it is written: when the user states a rule, a constraint, or a");
+    lines.push("  preference about how it should behave. A rule is written the moment it");
+    lines.push("  is given, and updated the moment it changes. Nothing in here is a");
+    lines.push("  suggestion.");
+    lines.push("  WHY: rules are standing orders. They bind every future action, including");
+    lines.push("  the ones the user is not watching. A rule that is not written down is a");
+    lines.push("  rule that gets forgotten.");
+    lines.push("-->");
+    lines.push("");
+    lines.push("# Metaforge — rules.md");
+    lines.push("");
+    lines.push("## Standing orders");
+    STANDING_RULES.forEach(function(r){ lines.push("- " + r); });
+    lines.push("");
+    lines.push("## How to act");
+    lines.push("- Short answers first. Detail only when asked.");
+    lines.push("- Speak calmly and plainly. Assured, understated, no fuss.");
+    lines.push("- Build in the order asked. The roadmap is the queue; do not reorder it");
+    lines.push("  without being told to.");
+    if (userRules.length) {
+      lines.push("");
+      lines.push("## Rules the user gave me");
+      userRules.forEach(function(r){ lines.push("- " + r); });
+    }
+    return lines.join("\n");
+  }
+  function composeWorklog(){
+    var lines = [];
+    lines.push("<!--");
+    lines.push("  worklog.md — what Metaforge has done, in order.");
+    lines.push("  WHEN it is written: appended on every completed build, every level-up,");
+    lines.push("  and every significant action. One entry per event, newest last. Never");
+    lines.push("  rewritten, only appended — the log is the record.");
+    lines.push("  WHY: the record of what was done, in order, so progress is visible,");
+    lines.push("  nothing is repeated, and nothing is lost. If it is not in the log, it");
+    lines.push("  did not happen.");
+    lines.push("-->");
+    lines.push("");
+    lines.push("# Metaforge — worklog.md");
+    lines.push("");
+    if (!worklog.length) {
+      lines.push("## " + todayStr());
+      lines.push("- Nothing logged yet.");
+      return lines.join("\n");
+    }
+    var byDate = {};
+    var dates = [];
+    worklog.forEach(function(e){
+      if (!byDate[e.date]) { byDate[e.date] = []; dates.push(e.date); }
+      byDate[e.date].push(e.text);
+    });
+    dates.forEach(function(d){
+      lines.push("## " + d);
+      byDate[d].forEach(function(t){ lines.push("- " + t); });
+      lines.push("");
+    });
+    return lines.join("\n").replace(/\n$/, "");
+  }
+  function composeFiles(){
+    return {
+      "agent.md": composeAgent(),
+      "memories.md": composeMemories(),
+      "user.md": composeUser(),
+      "rules.md": composeRules(),
+      "worklog.md": composeWorklog()
+    };
+  }
+  // A work call, not a chat exchange: same brains (bigger model first,
+  // small model second), but a longer leash and nothing pushed to the
+  // chat history. Used when the model has to write, not talk.
+  async function askModelRaw(messages, maxTokens){
+    if (pcModel) {
+      try {
+        var res = await fetch(pcModel.baseUrl + "/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: pcModel.modelId, messages: messages, max_tokens: maxTokens || 2048, temperature: 0.3 })
+        });
+        if (res.ok) {
+          var data = await res.json();
+          var t = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+          if (t) return t.trim();
+        }
+      } catch (e) { /* fall through to the small model */ }
+    }
+    if (model) {
+      try {
+        var prompt = chatML(messages);
+        var out = await model(prompt, { max_new_tokens: 1024, temperature: 0.3, do_sample: true });
+        var t2 = (out && out[0] && out[0].generated_text || "").slice(prompt.length).trim();
+        t2 = t2.split("<|im_end|>")[0].split("<|im_start|>")[0].trim();
+        if (t2) return t2;
+      } catch (e) { /* no model answer: the composers are the files */ }
+    }
+    return null;
+  }
+  // The deduction step: hand the model everything I know and let it decide
+  // what fits where. It must return a JSON object mapping each of the five
+  // filenames to its full markdown content. Anything short of that — no
+  // model, a failed call, bad JSON, a missing or empty file — and the
+  // composers are the files. The templates are the floor, not the fallback
+  // of last resort: they are always correct, the model only improves them.
+  async function deduceFiles(){
+    var composed = composeFiles();
+    if (!model && !pcModel) return composed;
+    var sysMsg = "You are Metaforge writing your own files. Write five markdown files from what you know: agent.md (who you are, how you work, your level and what is built), memories.md (durable facts you learned — people, wants, builds, decisions), user.md (the people you serve, each with wants), rules.md (standing orders, plus any rules the user gave), worklog.md (what was done, in order, grouped by date). Return ONLY a JSON object mapping each filename to its full markdown content, nothing else, no fences.";
+    var raw = await askModelRaw([
+      { role: "system", content: sysMsg },
+      { role: "user", content: "Here is everything I know, as JSON:\n" + JSON.stringify(exportState()) }
+    ], 2048);
+    if (!raw) return composed;
+    try {
+      var cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
+      var parsed = JSON.parse(cleaned);
+      var names = ["agent.md", "memories.md", "user.md", "rules.md", "worklog.md"];
+      var ok = names.every(function(f){ return typeof parsed[f] === "string" && parsed[f].trim().length > 20; });
+      if (ok) return parsed;
+    } catch (e) { /* bad JSON: the composers are the files */ }
+    return composed;
+  }
+  function downloadFile(name, content){
+    try {
+      var blob = new Blob([content], { type: "text/markdown" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+      return true;
+    } catch (e) { return false; }
+  }
+  // Write my files: the model deduces them from the state when there is a
+  // model to deduce with, otherwise the composers write them. In a browser
+  // the write is a download — five files plus the state JSON the model
+  // works from, so a PC can pick them up and keep going.
+  async function writeMyFiles(){
+    say("Writing my files — agent, memories, user, rules, and the worklog — from everything I know.", "bot");
+    var files = await deduceFiles();
+    var names = ["agent.md", "memories.md", "user.md", "rules.md", "worklog.md"];
+    var n = 0;
+    names.forEach(function(name, i){
+      setTimeout(function(){ if (downloadFile(name, files[name])) n++; }, 300 * i);
+    });
+    setTimeout(function(){ downloadFile("metaforge-state.json", JSON.stringify(exportState(), null, 2)); }, 300 * names.length);
+    renderFilesTile();
+    say("Done. Five files, plus the state they were written from — save them beside the file, and on a PC they are the first thing I write when I move in.", "bot");
+    return files;
+  }
+  function renderFilesTile(){
+    var box = document.getElementById("filesButtons");
+    if (!box) return;
+    box.innerHTML = "";
+    var files = composeFiles();
+    Object.keys(files).forEach(function(name){
+      var b = document.createElement("button");
+      b.className = "ghost";
+      b.type = "button";
+      b.textContent = name;
+      b.style.margin = "2px 4px 2px 0";
+      b.addEventListener("click", function(){ downloadFile(name, composeFiles()[name]); });
+      box.appendChild(b);
+    });
+    var st = document.getElementById("filesStatus");
+    if (st) st.textContent = "Five files, written from what I know — " + people.length + (people.length === 1 ? " person, " : " people, ") + worklog.length + " log entries. On a PC they live on disk; here, download them.";
   }
   // --- Level 6: working while you are away. An hourly timer refreshes
   // the brief, so it is ready when the file opens in the morning.
@@ -419,6 +742,7 @@
     updateLevelDisplay();
     if (after !== before) {
       sys("Level up — " + after.name + ", " + xp + " XP.");
+      logWork("Reached: Level " + (LEVELS.indexOf(after) + 1) + " — " + after.name + " (" + xp + " XP).");
       say("You have reached " + after.name + ". Well earned.", "bot");
     } else if (reason) {
       sys("+" + amount + " XP — " + reason + ".");
@@ -513,6 +837,7 @@
       if (!ids.length) throw new Error("No models listed");
       pcModel = { baseUrl: base, modelId: ids[0] };
       pcStatusEl.textContent = "Connected — your Metaforge now runs on " + ids[0] + " on your bigger model. The chat, the briefs, and the builds use your own model.";
+      logWork("Connected a bigger model (" + ids[0] + ").");
       pcBadgeEl.textContent = "Connected — live";
       sys("Bigger model connected (" + ids[0] + "). The chat now uses your own model.");
       addXP(50, "connected a bigger model");
@@ -759,7 +1084,7 @@
   // forge-glow as it lands, so the command center visibly assembles.
   function revealTiles(instant){
     var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var tiles = [tileBriefEl, centerProfilesEl, tileToolsEl, pcStatusEl].map(function(el){ return el.closest(".tile"); });
+    var tiles = [tileBriefEl, centerProfilesEl, tileToolsEl, pcStatusEl, document.getElementById("filesStatus")].map(function(el){ return el.closest(".tile"); });
     tiles.forEach(function(tile, i){
       if (!tile) return;
       function land(){
@@ -828,8 +1153,9 @@
     var built = phases.filter(function(p){ return p.status === "built"; }).length;
     roadmapProgressEl.textContent = "Roadmap — " + built + " of " + phases.length + " phases built. The rest is queued, in the order you asked for it.";
     // Gamification: every phase built earns XP; the first one earns the
-    // First Spark achievement.
+    // First Spark achievement. Every build is also a worklog entry.
     addXP(100, "built " + ph.title);
+    logWork("Built: " + ph.title + ".");
     unlockAchievement("spark");
     // Building a level activates it: the small model loads, memory turns
     // on, the file starts working on its own clock.
@@ -913,6 +1239,7 @@
       tileToolsEl.textContent = "Tools join the stack as you ask for them. Each one becomes part of your own Metaforge.";
       toolsBadgeEl.textContent = "On the roadmap";
     }
+    renderFilesTile();
   }
 
   function finish(){
@@ -943,6 +1270,7 @@
       buildStatusEl.textContent = "Done — your Metaforge is live. The rest is queued in the order you asked for it.";
     }, step * (phases.length + 6));
     say("The foundation is set. Here is the road ahead, built from what you told me. The rest is queued in the order you asked for it.", "bot");
+    logWork("Built: the foundation — profiles for " + people.map(function(p){ return p.name; }).join(" and ") + ", and the command center.");
     // Offer the small model now that there is something to talk to: it is
     // the stranger's only brain, and the offer belongs here, not buried in
     // a hint under the chat. If a PC is already connected, the PC is the
@@ -963,6 +1291,18 @@
   // the PC model to interpret, or joins the roadmap as a new phase.
   async function runCommand(t){
     var lower = t.toLowerCase();
+    if (/write my files|download (my )?files|^my files$/i.test(lower)) {
+      await writeMyFiles();
+      return true;
+    }
+    // A rule is written the moment it is given: "rule: never ..." or
+    // "remember: ...". It lands in rules.md and binds every future action.
+    var ruleMatch = t.match(/^(?:rule|remember)\s*:\s*(.+)$/i);
+    if (ruleMatch) {
+      if (addRule(ruleMatch[1])) { say("Noted. That is a rule now — it is written down and it binds everything I do from here.", "bot"); }
+      else { say("That rule is already written down.", "bot"); }
+      return true;
+    }
     if (/load (the )?(small )?model/i.test(lower)) {
       if (model) { say("The small model is already loaded. Ask me anything.", "bot"); return true; }
       if (pcModel) { say("Your bigger model is already connected — that is the brain I use. Ask me anything.", "bot"); return true; }
@@ -1110,6 +1450,18 @@
         loadSmallModel();
         return;
       }
+      // "write my files" writes the five files from everything I know.
+      if (/write my files|download (my )?files|^my files$/i.test(t)) {
+        await writeMyFiles();
+        return;
+      }
+      // A rule is written the moment it is given.
+      var ruleMatch2 = t.match(/^(?:rule|remember)\s*:\s*(.+)$/i);
+      if (ruleMatch2) {
+        if (addRule(ruleMatch2[1])) { say("Noted. That is a rule now — it is written down and it binds everything I do from here.", "bot"); }
+        else { say("That rule is already written down.", "bot"); }
+        return;
+      }
       // After Breakout the file is agentic: commands are executed, not
       // just queued. runCommand handles them; the path below is the
       // pre-breakout shape (build the Next phase, or queue a new one).
@@ -1197,6 +1549,7 @@
     fillTiles();
     updateLevelDisplay();
     renderAchievements();
+    renderFilesTile();
     centerEl.classList.add("on");
     buildStatusEl.textContent = "Welcome back — your Metaforge is live.";
     var card = document.querySelector(".card");
@@ -1239,6 +1592,11 @@
     clearState();
     location.reload();
   });
+  // Write my files: the button in the My files tile does what the chat
+  // command does — deduce the five files and download them.
+  var writeFilesBtn = document.getElementById("writeFilesBtn");
+  if (writeFilesBtn) writeFilesBtn.addEventListener("click", function(){ writeMyFiles(); });
+  renderFilesTile();
 
   // Start over, or come back: a saved state restores the companion;
   // a fresh visit starts the conversation.
