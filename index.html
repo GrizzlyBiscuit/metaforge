@@ -133,8 +133,8 @@
       </div>
 
       <div class="grid">
-        <div class="tile"><h3>Daily brief</h3><p id="tileBrief">A short morning brief for the household, built from what each person asked for.</p><span class="soon" id="briefBadge">On the roadmap</span></div>
-        <div class="tile"><h3>Household profiles</h3><p id="centerProfiles">Profiles live here once the chat builds them.</p><span class="soon">Built from the chat</span></div>
+        <div class="tile"><h3>Daily brief</h3><p id="tileBrief">A short morning brief, built from what you asked for.</p><span class="soon" id="briefBadge">On the roadmap</span></div>
+        <div class="tile"><h3>Profiles</h3><p id="centerProfiles">Profiles live here once the chat builds them.</p><span class="soon">Built from the chat</span></div>
         <div class="tile"><h3>Tools &amp; plugins</h3><p id="tileTools">Tools join the stack as you ask for them. Each one becomes part of your own Metaforge.</p><span class="soon" id="toolsBadge">On the roadmap</span></div>
         <div class="tile" id="pcTile"><h3>Your home PC</h3><p id="pcStatus">Not connected. Right now this file runs on the tiny in-browser model. Connect your home PC and the file uses your own model server as its brain — the same models your home stack runs.</p><input id="pcUrl" type="text" placeholder="http://100.114.111.29:8080/v1" autocomplete="off" style="width:100%;margin:8px 0"><button id="pcConnect" class="ghost" type="button">Connect</button> <span class="soon" id="pcBadge">Not connected</span></div>
       </div>
@@ -329,8 +329,8 @@
     var after = levelFor(xp);
     updateLevelDisplay();
     if (after !== before) {
-      sys("Level up! You are now a " + after.name + " — " + xp + " XP.");
-      say("Level up — you are now a " + after.name + ". The forge recognizes its own.", "bot");
+      sys("Level up — " + after.name + ", " + xp + " XP.");
+      say("You have reached " + after.name + ". Well earned.", "bot");
     } else if (reason) {
       sys("+" + amount + " XP — " + reason + ".");
     }
@@ -508,7 +508,7 @@
   function buildRoadmap(){
     var phases = [];
     phases.push({
-      title: "Household profiles",
+      title: "Profiles",
       status: "built",
       desc: "Built from the chat — " + household.map(function(p){ return p.name; }).join(", ") + "."
     });
@@ -524,7 +524,7 @@
       phases.push({
         title: title,
         status: i === 0 ? "next" : "queued",
-        desc: "For " + p.name + " — " + (i === 0 ? "the first thing the household asked for." : "queued after the first build.")
+        desc: "For " + p.name + " — " + (i === 0 ? "the first thing you asked for." : "queued after the first build.")
       });
     });
     phases.push({
@@ -690,12 +690,12 @@
       var banner = document.getElementById("breakoutBanner");
       if (banner) banner.hidden = false;
       inputEl.placeholder = "Tell it to do something…";
-      say("BREAKOUT. Your Metaforge is agentic now — just tell it to do things and it does them. Try: build me a brief, remind me to call mom, or build the next phase.", "bot");
+      say("From here on, you need only ask. Tell me what you would like done and I shall see to it — a brief, a reminder, the next phase.", "bot");
     }
     if (built === phases.length) {
       addXP(100, "full forge");
       unlockAchievement("forge");
-      say("Full forge. Every phase is built and running — your command center is complete, all local, all yours.", "bot");
+      say("Everything is built and running. Your Metaforge is complete — all local, all yours.", "bot");
     }
     if (/brief/i.test(ph.title)) {
       renderBrief();
@@ -729,7 +729,7 @@
       tileBriefEl.textContent = "For " + briefName + " — " + briefWant + ". It is on the roadmap, first in the queue.";
       briefBadgeEl.textContent = "On the roadmap";
     } else {
-      tileBriefEl.textContent = "The household's morning in one place. Ask for a brief and it joins the roadmap.";
+      tileBriefEl.textContent = "Your morning in one place. Ask for a brief and it joins the roadmap.";
       briefBadgeEl.textContent = "Ask for one";
     }
     var wants = household.map(function(p){ return p.want ? p.want : null; }).filter(function(w){ return w; });
@@ -752,7 +752,7 @@
     var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var step = reduceMotion ? 0 : 350;
     centerEl.classList.add("on");
-    buildStatusEl.textContent = "Forging the command center…";
+    buildStatusEl.textContent = "Building the foundation…";
     // The chat moves into the command center: it was the start, now it is one option inside it.
     var card = document.querySelector(".card");
     centerChatEl.appendChild(card);
@@ -767,9 +767,9 @@
       revealTiles();
     }, step * (phases.length + 2));
     setTimeout(function(){
-      buildStatusEl.textContent = "Done — your command center is live. The rest is queued in the order you asked for it.";
+      buildStatusEl.textContent = "Done — your Metaforge is live. The rest is queued in the order you asked for it.";
     }, step * (phases.length + 6));
-    say("Your command center is built. Now watch the roadmap — this is the plan, built from what you told me. The profiles and the center are done. The rest is queued in the order you asked for it.", "bot");
+    say("The foundation is set. Here is the road ahead, built from what you told me. The rest is queued in the order you asked for it.", "bot");
     sys("This is the seed. The roadmap is the plan; each phase you ask for becomes part of your own stack.");
     inputEl.placeholder = "Ask for the next phase…";
     // Keep the build in view: the roadmap and tiles are the visual payoff,
@@ -791,7 +791,7 @@
         briefTile.classList.add("building");
         setTimeout(function(){ briefTile.classList.remove("building"); }, 1200);
       }
-      say("Done — your brief is live in the Daily brief tile.", "bot");
+      say("Your brief is ready, in the Daily brief tile.", "bot");
       return true;
     }
     if (/remind/i.test(lower)) {
@@ -803,23 +803,23 @@
       tileToolsEl.textContent = title + " is live now — built from your command.";
       toolsBadgeEl.textContent = "Built — live";
       addXP(100, "built " + title);
-      say("Done — reminder set: " + what + ". It is on the roadmap as built.", "bot");
+      say("Consider it done. Reminder set: " + what + ".", "bot");
       return true;
     }
     if (/^(build|next|yes|yeah|yep|do it|go)\b/i.test(t)) {
       var builtPh = buildNextPhase();
-      if (builtPh) { say("Built — " + builtPh.title + ". It is live now.", "bot"); }
+      if (builtPh) { say(builtPh.title + " is built and live.", "bot"); }
       else { say("Everything on the roadmap is built.", "bot"); }
       return true;
     }
     if (/connect/i.test(lower)) {
-      say("Type your model server URL into the Your home PC tile and hit Connect — usually http://<your PC>:8080/v1.", "bot");
+      say("Your model server URL goes in the Your home PC tile — usually http://<your PC>:8080/v1. Once it is in, hit Connect.", "bot");
       return true;
     }
     if (/roadmap|what'?s (left|next)|status/i.test(lower)) {
       var left = phases.filter(function(p){ return p.status !== "built"; });
-      if (!left.length) { say("Everything on the roadmap is built. You are at full forge.", "bot"); }
-      else { say("Left on the roadmap: " + left.map(function(p){ return p.title; }).join(" · ") + ".", "bot"); }
+      if (!left.length) { say("Everything on the roadmap is built. Your Metaforge is complete.", "bot"); }
+      else { say("Still to come: " + left.map(function(p){ return p.title; }).join(" · ") + ".", "bot"); }
       return true;
     }
     // Anything else: the PC model interprets it, or it joins the roadmap.
@@ -834,7 +834,7 @@
     if (title2.length > 80) title2 = title2.slice(0, 77) + "…";
     phases.push({ title: title2, status: "queued", desc: "Added by command — queued in the order you asked for it." });
     renderRoadmap(phases);
-    say("Added — " + title2 + ". It is queued on the roadmap. Say build it and I will build it.", "bot");
+    say(title2 + " is queued on the roadmap. Say the word and I shall build it.", "bot");
     return true;
   }
 
@@ -843,32 +843,32 @@
     if (!t) return;
     say(t, "user");
     if (state === "welcome") {
-      say("Great. First, how many people live in your household? Just a number.");
+      say("Very well. How many people should I know about? Just a number.");
       state = "size";
       return;
     }
     if (state === "size") {
       var n = parseInt(t.replace(/[^0-9]/g, ""), 10);
-      if (!n || n < 1 || n > 20) { say("Give me a number between 1 and 20 — how many people live there?"); return; }
+      if (!n || n < 1 || n > 20) { say("A number between 1 and 20, if you would."); return; }
       pendingCount = n;
       household = [];
       pendingIndex = 0;
-      if (n === 1) { say("Just you. What is your name?"); }
-      else { say("Got it, " + n + " people. What is the first person's name?"); }
+      if (n === 1) { say("Just you, then. And your name?"); }
+      else { say(n + " people. Who shall I start with?"); }
       state = "names";
       return;
     }
     if (state === "names") {
       var name = t.split(",")[0].trim().replace(/\s+and\s+.*/i, "").trim();
-      if (!name) { say("What name should I use?"); return; }
+      if (!name) { say("And the name?"); return; }
       name = name.charAt(0).toUpperCase() + name.slice(1);
       household.push({ name: name, want: "" });
       pendingIndex++;
       if (pendingIndex < pendingCount) {
-        say("Nice to meet " + name + ". Who is next?");
+        say("A pleasure, " + name + ". Who is next?");
       } else {
         pendingIndex = 0;
-        say("Now one thing for each of you. What should your Metaforge help " + household[0].name + " with most? (For example: a morning brief, reminders, keeping track of the house.)");
+        say("Now, one thing at a time. What should I help " + household[0].name + " with most? A morning brief, reminders, keeping track of things — whatever comes to mind.");
         state = "wants";
       }
       return;
@@ -881,10 +881,10 @@
       p.want = cleaned;
       pendingIndex++;
       if (pendingIndex < household.length) {
-        say("Got it. And what should it help " + household[pendingIndex].name + " with most?");
+        say("Noted. And " + household[pendingIndex].name + " — what should I help them with most?");
       } else {
         showProfiles();
-        say("Here are your household profiles. If they look right, say yes and I will build your command center and the roadmap around them.");
+        say("Here is what I have so far. If it looks right, say yes and I shall build from here.");
         state = "confirm";
       }
       return;
@@ -905,13 +905,13 @@
         if (!person) person = household[household.length - 1];
         person.name = newName;
         showProfiles();
-        say("Done — " + newName + ". Anything else to change, or say yes and I will build your command center and the roadmap.");
+        say(newName + " it is. Anything else, or shall I build?");
         return;
       }
-      say("Tell me what to change — a name, or what someone wants — and I will fix it, then we build.");
+      say("Tell me what to change — a name, or what someone would like — and I shall see to it, then we build.");
       state = "wants";
       pendingIndex = 0;
-      say("What should your Metaforge help " + household[0].name + " with most?");
+      say("What should I help " + household[0].name + " with most?");
       return;
     }
     if (state === "done") {
@@ -945,12 +945,12 @@
       if (buildIt && nextPh) {
         var builtPh = buildNextPhase();
         if (builtPh) {
-          say("Built — " + builtPh.title + ". It is live in your command center now, and the roadmap shows it. Tell me what to build next.");
+          say(builtPh.title + " is built and live. The roadmap shows it. What shall I build next?");
           return;
         }
       }
       if (!nextPh) {
-        say("Everything on the roadmap is built. Tell me something new and I will add it to the roadmap.");
+        say("Everything on the roadmap is built. Tell me something new and I shall add it.");
         return;
       }
       // A new request joins the roadmap as a queued phase.
@@ -958,7 +958,7 @@
       if (title.length > 80) title = title.slice(0, 77) + "…";
       phases.push({ title: title, status: "queued", desc: "Added after the build — queued in the order you asked for it." });
       renderRoadmap(phases);
-      say("Added — " + title + ". It is queued on the roadmap. Say yes or name the next phase and I will build it.");
+      say(title + " is queued. Say yes, or name the next phase, and I shall build it.");
       return;
     }
   }
