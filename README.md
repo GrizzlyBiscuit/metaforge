@@ -19,21 +19,24 @@ No account. No cloud. No subscription. Nothing leaves the machine the file runs 
 
 The chat runs on a script, so it works right now with no download. A small model makes it understand free text instead of just accepting answers, and it is optional: click **Load the small AI model** and the file pulls a tiny quantized model (Qwen2.5-0.5B-Instruct, about 750 MB, cached after the first time) that runs in the browser.
 
-- **Level 1 — WASM.** Runs on any machine, even a potato. Slow, but the chat gives short answers, so it feels fine.
-- **Level 2 — WebGPU.** The same model, the same file, no re-download. When the machine has WebGPU the file uses it instead, roughly five to ten times faster.
+- **WASM.** Runs on any machine, even a potato. Slow, but the chat gives short answers, so it feels fine.
+- **WebGPU.** The same model, the same file, no re-download. When the machine has WebGPU the file uses it instead, roughly five to ten times faster.
 
 The model is fine-tuned for this one job — guiding the build — so it does not need to be big. A 0.5B model is enough for a guided conversation.
 
-## The tiers
+## The levels
 
-The file is the seed. The tiered plan grows it, step by step, into the full stack:
+The file is the seed. It grows, level by level, into your own capable assistant. Each level is a capability, not a piece of hardware — the file you start with is the file that gets there.
 
-1. **The file.** A chat in the browser, profiles for the people you name, a command-center skeleton.
-2. **A local model server.** The same small model, or a bigger one, on your own PC. Faster, and it runs around the clock.
-3. **The full stack.** A model router, a local chat page, a phone app, scheduled daily briefs, tools and plugins becoming part of your own stack.
-4. **The pool.** Two consumer GPUs split models across them. The stack itself runs on one.
+1. **Level 1 — It talks.** A chat in a file. It asks who you are, builds a profile for each person you name, and lays out the road ahead. No model, no server, no account. One click, anywhere.
+2. **Level 2 — It understands.** The small model loads in the browser. Free text gets understood, not just accepted — and it can actually chat with you, not just follow the script.
+3. **Level 3 — It remembers.** What you told it sticks across sessions — the profiles, the wants, the road so far — and it uses them when it talks to you.
+4. **Level 4 — It does things.** Tell it to do something and it does it. A brief, a reminder, the next phase on the roadmap. The breakout: it stops being a build and starts being an agent.
+5. **Level 5 — It reaches further.** When the small model is not enough, it talks to a bigger one — a model server on a machine you own, or any OpenAI-compatible endpoint. The file is the front end; the brain can live anywhere you put it.
+6. **Level 6 — It works while you are away.** Scheduled briefs, reminders that fire, things it does on its own clock — it keeps working when the browser is closed.
+7. **Level 7 — It grows itself.** Every thing you ask for becomes part of it. The roadmap never ends. It improves itself one request at a time, on your machine, for you.
 
-Each tier is a step up, not a restart. The file you start with is the file that grows.
+Each level is a step up, not a restart. The file you start with is the file that grows.
 
 ## The method
 
@@ -45,7 +48,7 @@ Higher-level engineering through AI prompting. You do not have to know how to co
 
 ## Status
 
-Beginning. The file is the seed and it works: the chat, the profiles, the roadmap, and the command-center build-out are live in `index.html`. The model integration, the scheduled briefs, and the tools are the next tiers. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for what is built and what is next.
+Beginning. The file is the seed and it works: the chat, the profiles, the roadmap, the command-center build-out, and open chat with the small model are in `index.html`. The scheduled briefs, the tools, and the higher levels are next. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for what is built and what is next.
 
 ## License
 

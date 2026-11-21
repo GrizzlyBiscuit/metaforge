@@ -141,12 +141,12 @@
         <div class="tile"><h3>Daily brief</h3><p id="tileBrief">A short morning brief, built from what you asked for.</p><span class="soon" id="briefBadge">On the roadmap</span></div>
         <div class="tile"><h3>Profiles</h3><p id="centerProfiles">Profiles live here once the chat builds them.</p><span class="soon">Built from the chat</span></div>
         <div class="tile"><h3>Tools &amp; plugins</h3><p id="tileTools">Tools join the stack as you ask for them. Each one becomes part of your own Metaforge.</p><span class="soon" id="toolsBadge">On the roadmap</span></div>
-        <div class="tile" id="pcTile"><h3>Your home PC</h3><p id="pcStatus">Not connected. Right now this file runs on the tiny in-browser model. Connect your home PC and the file uses your own model server as its brain — the same models your home stack runs.</p><input id="pcUrl" type="text" placeholder="http://100.114.111.29:8080/v1" autocomplete="off" style="width:100%;margin:8px 0"><button id="pcConnect" class="ghost" type="button">Connect</button> <span class="soon" id="pcBadge">Not connected</span></div>
+        <div class="tile" id="pcTile"><h3>A bigger model — Level 5</h3><p id="pcStatus">Not connected. Right now this file runs on the tiny in-browser model. When you want more, connect a bigger model — a model server on a machine you own, or any OpenAI-compatible endpoint — and the file uses it as its brain.</p><input id="pcUrl" type="text" placeholder="http://192.168.1.50:8080/v1" autocomplete="off" style="width:100%;margin:8px 0"><button id="pcConnect" class="ghost" type="button">Connect</button> <span class="soon" id="pcBadge">Not connected</span></div>
       </div>
       <div class="card" id="centerChat"><strong>Chat</strong> <span style="color:var(--muted)">— the conversation that started all of this is now just one option inside your command center.</span></div>
     </div>
 
-    <p class="foot">A tiny file that builds itself. No account, no cloud, no subscription. Your data never leaves this machine. <a href="https://gitr3kt.com/reports/metaforge/">Read the report</a> · <a href="https://gitr3kt.com/metaforging/">Read the essay</a> · <a href="/files/metaforge?embed=1" download="metaforge.html">Download this file</a> — open it and it works. <a href="https://github.com/GrizzlyBiscuit/metaforge">metaforge</a> · MIT licensed.</p>
+    <p class="foot">A tiny file that builds itself. No account, no cloud, no subscription. Your data never leaves this machine. <a href="https://gitr3kt.com/reports/metaforge/">Read the report</a> · <a href="https://gitr3kt.com/metaforging/">Read the essay</a> · <a href="/files/metaforge?embed=1" download="metaforge.html">Download this file</a> — open it and it works. <a href="https://github.com/GrizzlyBiscuit/metaforge">metaforge</a> · MIT licensed. <button id="resetAll" class="ghost" type="button">Start over</button></p>
   </div>
 
   <div class="composer">
@@ -249,13 +249,15 @@
   var phases = [];             // the roadmap, built in finish(), built further after
   var model = null;            // text-generation pipeline, when loaded
   var modelLoading = false;
-  var pcModel = null;          // { baseUrl, modelId } once the home PC is connected
+  var pcModel = null;          // { baseUrl, modelId } once a bigger model is connected
 
   // --- gamification: the build is a game, not a checklist ---
   // XP: a phase built = 100, PC connected = 50, breakout = 200, full forge = 100.
   // Levels: Apprentice 0, Smith 200, Artificer 400, Master Forger 700, Legend 1000.
   var xp = 0;
   var agentic = false;         // true once the Breakout phase is built
+  var remember = false;        // true once Level 3 is built: the file saves its state
+  var awayTimer = null;        // hourly brief refresh, once Level 6 is built
   var unlocked = {};           // achievement id -> true
   var LEVELS = [
     { at: 0, name: "Apprentice Forger" },
@@ -271,7 +273,54 @@
     { id: "forge", label: "Full Forge" }
   ];
 
-  // Bot replies are paced, not instant: a typing indicator, then the
+  // --- Level 3: remembering. Once built, the file saves its state to
+  // this browser (localStorage, nothing leaves the machine) and restores
+  // it on the next visit: the people, the roadmap, the XP, the chat.
+  // Before Level 3 the file is a session — close the tab, start over.
+  function saveState(){
+    if (!remember) return;
+    try {
+      var chatLog = [];
+      var msgs = chatEl.querySelectorAll(".msg");
+      for (var i = 0; i < msgs.length; i++) {
+        // Never save the typing indicator: it is a transient animation,
+        // and restoring it would leave a permanent "typing" bubble that
+        // never clears.
+        if (msgs[i].classList.contains("typing")) continue;
+        chatLog.push({ cls: msgs[i].className, html: msgs[i].innerHTML });
+      }
+      localStorage.setItem("metaforge-state", JSON.stringify({
+        people: people, phases: phases, xp: xp, agentic: agentic,
+        unlocked: unlocked, chatHistory: chatHistory, chatLog: chatLog,
+        savedAt: new Date().toISOString().slice(0, 10)
+      }));
+    } catch (e) { /* storage full or blocked: the file still works, it just forgets */ }
+  }
+  function loadState(){
+    try {
+      var raw = localStorage.getItem("metaforge-state");
+      if (!raw) return false;
+      var s = JSON.parse(raw);
+      if (!s || !s.people || !s.phases) return false;
+      people = s.people; phases = s.phases; xp = s.xp || 0;
+      agentic = !!s.agentic; unlocked = s.unlocked || {};
+      chatHistory = s.chatHistory || [];
+      restoredChatLog = s.chatLog || null;
+      remember = true;
+      return true;
+    } catch (e) { return false; }
+  }
+  function clearState(){
+    try { localStorage.removeItem("metaforge-state"); } catch (e) {}
+  }
+  // --- Level 6: working while you are away. An hourly timer refreshes
+  // the brief, so it is ready when the file opens in the morning.
+  function startAwayTimer(){
+    if (awayTimer) return;
+    awayTimer = setInterval(function(){
+      if (typeof renderBrief === "function") renderBrief();
+    }, 3600000);
+  }
   // message lands after a beat that scales with its length. Instant
   // replies read as a script; a considered pause reads as an agent.
   // Replies queue so two in a row play out one at a time, never overlapping.
@@ -405,7 +454,10 @@
     }
   }
 
-  loadModelBtn.addEventListener("click", async function(){
+  // The small in-browser model, loadable from the button or from the chat
+  // ("load the model"). It is the stranger's only brain: no account, no
+  // server, just a file downloaded once and cached in the browser.
+  async function loadSmallModel(){
     if (model || modelLoading) return;
     modelLoading = true;
     loadModelBtn.disabled = true;
@@ -433,22 +485,21 @@
       model = pipe;
       modelProgressEl.hidden = true;
       modelStateEl.textContent = "Model ready on " + deviceUsed.toUpperCase() + ". It runs in this browser — WASM on the weakest machine, WebGPU as a speed upgrade, same model file.";
-      sys("Small model loaded on " + deviceUsed.toUpperCase() + ". The chat now understands free-text answers.");
+      sys("Small model loaded on " + deviceUsed.toUpperCase() + ". I can actually talk now, not just follow the script.");
     } catch (e) {
       modelProgressEl.hidden = true;
       modelStateEl.textContent = "Model did not load (" + (e && e.message ? e.message : "offline or unsupported") + "). The scripted chat still works.";
     } finally {
       modelLoading = false;
     }
-  });
+  }
+  loadModelBtn.addEventListener("click", loadSmallModel);
 
-  // --- the home PC: the file's brain, when you have one ---
-  // The tiny in-browser model is the fallback. The real harness is your
-  // own PC running a model server (OpenAI-compatible /v1). Connect it and
-  // the file stops being a script with a small model and starts being a
-  // front end to your own stack — same models your home harness runs.
-  // Without this, the file is a seed that can only do browser-local
-  // things. With it, the file becomes the harness.
+  // --- the bigger model: the file's brain, when you want more ---
+  // The tiny in-browser model is the default. A bigger model is Level 5:
+  // a model server on a machine you own, or any OpenAI-compatible /v1
+  // endpoint. Connect it and the file uses it as its brain — the chat,
+  // the briefs, and the builds all go to the bigger model first.
   async function connectPC(){
     var base = (pcUrlEl.value || "").trim().replace(/\/+$/, "");
     if (!base) { pcStatusEl.textContent = "Type your model server URL first — usually http://<your PC>:8080/v1."; return; }
@@ -461,14 +512,14 @@
       var ids = (data && data.data || []).map(function(m){ return m.id; }).filter(Boolean);
       if (!ids.length) throw new Error("No models listed");
       pcModel = { baseUrl: base, modelId: ids[0] };
-      pcStatusEl.textContent = "Connected — your Metaforge now runs on " + ids[0] + " on your home PC. The chat, the briefs, and the builds use your own model.";
+      pcStatusEl.textContent = "Connected — your Metaforge now runs on " + ids[0] + " on your bigger model. The chat, the briefs, and the builds use your own model.";
       pcBadgeEl.textContent = "Connected — live";
-      sys("Home PC connected (" + ids[0] + "). The chat now uses your own model.");
-      addXP(50, "connected your home PC");
+      sys("Bigger model connected (" + ids[0] + "). The chat now uses your own model.");
+      addXP(50, "connected a bigger model");
       unlockAchievement("connected");
-      // Flip the "Connect your home PC" roadmap phase to Built.
+      // Flip the "Connect a bigger model" roadmap phase to Built.
       for (var i = 0; i < phases.length; i++) {
-        if (/home pc/i.test(phases[i].title) && phases[i].status !== "built") {
+        if (/bigger model/i.test(phases[i].title) && phases[i].status !== "built") {
           phases[i].status = "built";
           var li = roadmapListEl.children[i];
           if (li) {
@@ -483,6 +534,7 @@
           break;
         }
       }
+      saveState();
     } catch (e) {
       pcStatusEl.textContent = "Could not connect (" + (e && e.message ? e.message : "unreachable") + "). Check the URL and that the model server is running — and that it allows browser requests (CORS). The tiny in-browser model still works.";
       pcBadgeEl.textContent = "Not connected";
@@ -492,7 +544,7 @@
   }
   pcConnectBtn.addEventListener("click", connectPC);
 
-  // Ask the home PC's model a question (OpenAI-compatible /v1/chat/completions).
+  // Ask the bigger model a question (OpenAI-compatible /v1/chat/completions).
   async function pcChat(prompt){
     if (!pcModel) return null;
     try {
@@ -509,7 +561,7 @@
   }
 
   // Ask the model to pull one short answer out of free text.
-  // The home PC's model answers first when connected; the tiny in-browser
+  // The bigger model answers first when connected; the tiny in-browser
   // model is the fallback; without either, the script path takes over.
   async function modelExtract(question, text){
     var prompt = question + "\nAnswer: " + text + "\nShort answer:";
@@ -523,6 +575,65 @@
       var t = (out && out[0] && out[0].generated_text || "").replace(prompt, "").trim().split("\n")[0].trim();
       return t || null;
     } catch (e) { return null; }
+  }
+
+  // --- open chat with a model: the file stops being a script ---
+  // The conversation is scripted until here. Once a model is available —
+  // the small in-browser one, or the bigger model when connected — free text
+  // that is not a command goes to the model as a real conversation, with
+  // the people it knows and the last few exchanges in the prompt. The PC
+  // answers first when connected; the tiny model is the fallback, so the
+  // file works for someone with nothing but a browser.
+  var chatHistory = []; // {role, content}, newest last; capped, system not stored
+  var restoredChatLog = null; // saved .msg entries, restored by loadState()
+  function systemPrompt(){
+    var who = people.map(function(p){ return p.name + (p.want ? " wants " + p.want : ""); }).join("; ");
+    return "You are Metaforge, a personal AI companion that someone is growing for themselves. " +
+      (who ? "The people you know: " + who + ". " : "") +
+      "You are calm, concise, and helpful. Answer in a few sentences, in plain words. " +
+      "You never claim to be human, and you never mention that you are a language model unless asked.";
+  }
+  function chatML(messages){
+    var out = "";
+    messages.forEach(function(m){
+      out += "<|im_start|>" + m.role + "\n" + m.content + "<|im_end|>\n";
+    });
+    out += "<|im_start|>assistant\n";
+    return out;
+  }
+  async function chatWithModel(text){
+    var messages = [{ role: "system", content: systemPrompt() }]
+      .concat(chatHistory.slice(-10))
+      .concat([{ role: "user", content: text }]);
+    var reply = null;
+    if (pcModel) {
+      try {
+        var res = await fetch(pcModel.baseUrl + "/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: pcModel.modelId, messages: messages, max_tokens: 256, temperature: 0.7 })
+        });
+        if (res.ok) {
+          var data = await res.json();
+          var t = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+          if (t) reply = t.trim();
+        }
+      } catch (e) { reply = null; }
+    }
+    if (!reply && model) {
+      try {
+        var prompt = chatML(messages);
+        var out = await model(prompt, { max_new_tokens: 160, temperature: 0.7, do_sample: true });
+        var t2 = (out && out[0] && out[0].generated_text || "").slice(prompt.length).trim();
+        t2 = t2.split("<|im_end|>")[0].split("<|im_start|>")[0].trim();
+        if (t2) reply = t2;
+      } catch (e) { reply = null; }
+    }
+    if (!reply) return null;
+    chatHistory.push({ role: "user", content: text });
+    chatHistory.push({ role: "assistant", content: reply });
+    if (chatHistory.length > 12) chatHistory = chatHistory.slice(-12);
+    return reply;
   }
 
   function showProfiles(){
@@ -541,10 +652,10 @@
   // --- the roadmap: the plan, built from the conversation ---
   // The file knows the end goal (your own capable assistant)
   // and builds the road to it from what you asked for, in order.
-  // The repo phases are the point: the file starts bare and grabs a part
-  // from GrizzlyBiscuit/command-center as each one lands — the PC hub, the
-  // agent runner, the remote routes, the installer — until the Breakout,
-  // where it stops being a build and starts doing things.
+  // After the wants, the road is the levels: each one is a capability
+  // the file gains when you build it — talking with the small model,
+  // remembering across sessions, doing things, reaching a bigger model,
+  // working while you are away — until the full command center.
   function buildRoadmap(){
     var phases = [];
     phases.push({
@@ -568,39 +679,41 @@
       });
     });
     phases.push({
-      title: "Connect your home PC",
+      title: "Talk with the small model",
       status: "queued",
-      desc: "Grab: the PC hub pattern from command-center — your model server becomes the brain.",
-      grab: "the PC hub pattern"
+      level: 2,
+      desc: "Level 2 — it understands. The small model loads in the browser and the file can actually chat, not just follow the script."
     });
     phases.push({
-      title: "Agent runner",
+      title: "Remember across sessions",
       status: "queued",
-      desc: "Grab: backend/agent/runner.py from command-center — run_agent, JSON context on stdin, 180s timeout. This is the agent loop.",
-      grab: "backend/agent/runner.py"
-    });
-    phases.push({
-      title: "Remote control",
-      status: "queued",
-      desc: "Grab: the remote routes from command-center — tell your PC to do things from the file.",
-      grab: "the remote routes"
-    });
-    phases.push({
-      title: "Agent installer",
-      status: "queued",
-      desc: "Grab: backend/agent/installer.py from command-center — install agents from a URL, path-safety checked.",
-      grab: "backend/agent/installer.py"
+      level: 3,
+      desc: "Level 3 — it remembers. What you told it sticks — profiles, wants, the road so far — and it uses them when it talks to you."
     });
     phases.push({
       title: "Breakout: tell it to do things",
       status: "queued",
-      desc: "The moment it clicks — just tell it to do things and it does them. Full agentic capabilities.",
+      level: 4,
+      desc: "Level 4 — it does things. The moment it clicks — just tell it to do things and it does them. Full agentic capabilities.",
       kind: "breakout"
+    });
+    phases.push({
+      title: "Connect a bigger model",
+      status: "queued",
+      level: 5,
+      desc: "Level 5 — it reaches further. A bigger model, anywhere you put it — a model server on a machine you own, or any OpenAI-compatible endpoint."
+    });
+    phases.push({
+      title: "Work while you're away",
+      status: "queued",
+      level: 6,
+      desc: "Level 6 — it works while you are away. Scheduled briefs and reminders that fire on their own clock, without the browser open."
     });
     phases.push({
       title: "The full command center",
       status: "queued",
-      desc: "The end goal — every phase built and running, all local, all yours."
+      level: 7,
+      desc: "Level 7 — it grows itself. The end goal — every phase built and running, all local, all yours."
     });
     return phases;
   }
@@ -608,7 +721,7 @@
   // The user watches the roadmap assemble, one phase at a time.
   // Each phase lands with a brief gold forge-glow, then settles.
   // The progress line counts live as each built phase lands.
-  function renderRoadmap(phases){
+  function renderRoadmap(phases, instant){
     roadmapListEl.innerHTML = "";
     var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var total = phases.length;
@@ -637,14 +750,14 @@
         if (ph.status === "built") { builtSoFar++; setProgress(); }
         setTimeout(function(){ li.classList.remove("building"); }, reduceMotion ? 0 : 600);
       }
-      if (reduceMotion) { land(); }
+      if (reduceMotion || instant) { land(); }
       else { setTimeout(land, 350 * (i + 1)); }
     });
   }
 
   // The tiles wire in one by one after the roadmap, each with the same
   // forge-glow as it lands, so the command center visibly assembles.
-  function revealTiles(){
+  function revealTiles(instant){
     var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var tiles = [tileBriefEl, centerProfilesEl, tileToolsEl, pcStatusEl].map(function(el){ return el.closest(".tile"); });
     tiles.forEach(function(tile, i){
@@ -654,7 +767,7 @@
         tile.classList.add("building");
         setTimeout(function(){ tile.classList.remove("building"); }, reduceMotion ? 0 : 600);
       }
-      if (reduceMotion) { land(); }
+      if (reduceMotion || instant) { land(); }
       else { setTimeout(land, 350 * (i + 1)); }
     });
   }
@@ -715,11 +828,30 @@
     var built = phases.filter(function(p){ return p.status === "built"; }).length;
     roadmapProgressEl.textContent = "Roadmap — " + built + " of " + phases.length + " phases built. The rest is queued, in the order you asked for it.";
     // Gamification: every phase built earns XP; the first one earns the
-    // First Spark achievement; a repo grab is announced as a grab.
+    // First Spark achievement.
     addXP(100, "built " + ph.title);
     unlockAchievement("spark");
-    if (ph.grab) {
-      sys("Grabbed " + ph.grab + " from GrizzlyBiscuit/command-center.");
+    // Building a level activates it: the small model loads, memory turns
+    // on, the file starts working on its own clock.
+    if (ph.level === 2) {
+      if (!model && !modelLoading) {
+        say("Level 2 — the small model is downloading now, about 750 MB once, cached after that. I shall be able to talk once it is here.", "bot");
+        loadSmallModel();
+      }
+    }
+    if (ph.level === 3) {
+      remember = true;
+      saveState();
+      say("Level 3 — I remember now. What you told me is saved on this machine, and it will still be here when you come back.", "bot");
+    }
+    if (ph.level === 5) {
+      var pcTile = document.getElementById("pcTile");
+      if (pcTile) { pcTile.classList.add("on"); pcTile.scrollIntoView({ block: "nearest" }); }
+      say("Level 5 — the bigger-model tile is ready. Put your model server URL in it when you have one; until then the small model is the brain.", "bot");
+    }
+    if (ph.level === 6) {
+      startAwayTimer();
+      say("Level 6 — I work while you are away now. The brief refreshes on its own clock, and it is ready when you open the file in the morning.", "bot");
     }
     if (ph.kind === "breakout") {
       // The breakout moment: the file stops being a build and starts doing
@@ -756,6 +888,7 @@
         setTimeout(function(){ toolsTile.classList.remove("building"); }, 1200);
       }
     }
+    saveState();
     return ph;
   }
 
@@ -810,6 +943,13 @@
       buildStatusEl.textContent = "Done — your Metaforge is live. The rest is queued in the order you asked for it.";
     }, step * (phases.length + 6));
     say("The foundation is set. Here is the road ahead, built from what you told me. The rest is queued in the order you asked for it.", "bot");
+    // Offer the small model now that there is something to talk to: it is
+    // the stranger's only brain, and the offer belongs here, not buried in
+    // a hint under the chat. If a PC is already connected, the PC is the
+    // brain and there is nothing to offer.
+    if (!model && !pcModel) {
+      say("I can actually talk now, not just follow the script — say 'load the model' and I shall download the small one. Free, runs in your browser, about 750 MB once, cached after that.", "bot");
+    }
     sys("This is the seed. The roadmap is the plan; each phase you ask for becomes part of your own stack.");
     inputEl.placeholder = "Ask for the next phase…";
     // Keep the build in view: the roadmap and tiles are the visual payoff,
@@ -823,6 +963,13 @@
   // the PC model to interpret, or joins the roadmap as a new phase.
   async function runCommand(t){
     var lower = t.toLowerCase();
+    if (/load (the )?(small )?model/i.test(lower)) {
+      if (model) { say("The small model is already loaded. Ask me anything.", "bot"); return true; }
+      if (pcModel) { say("Your bigger model is already connected — that is the brain I use. Ask me anything.", "bot"); return true; }
+      say("Loading the small model now — about 750 MB, once, then it is cached. Give it a moment.", "bot");
+      loadSmallModel();
+      return true;
+    }
     if (/brief/i.test(lower)) {
       renderBrief();
       var briefTile = tileBriefEl.closest(".tile");
@@ -853,7 +1000,7 @@
       return true;
     }
     if (/connect/i.test(lower)) {
-      say("Your model server URL goes in the Your home PC tile — usually http://<your PC>:8080/v1. Once it is in, hit Connect.", "bot");
+      say("Your model server URL goes in the A bigger model tile — usually http://<your PC>:8080/v1. Once it is in, hit Connect.", "bot");
       return true;
     }
     if (/roadmap|what'?s (left|next)|status/i.test(lower)) {
@@ -862,13 +1009,13 @@
       else { say("Still to come: " + left.map(function(p){ return p.title; }).join(" · ") + ".", "bot"); }
       return true;
     }
-    // Anything else: the PC model interprets it, or it joins the roadmap.
-    if (pcModel) {
-      var interpreted = await pcChat("The user told their home AI to do this: " + t + ". In one short sentence, say what you will do.");
-      if (interpreted) {
-        say(interpreted, "bot");
-        return true;
-      }
+    // Anything else is a conversation: the model answers with the history
+    // behind it — PC first when connected, the small model otherwise. Only
+    // with no model at all does the request join the roadmap as a phase.
+    var chatReply = await chatWithModel(t);
+    if (chatReply) {
+      say(chatReply, "bot");
+      return true;
     }
     var title2 = t.charAt(0).toUpperCase() + t.slice(1);
     if (title2.length > 80) title2 = title2.slice(0, 77) + "…";
@@ -955,6 +1102,14 @@
       return;
     }
     if (state === "done") {
+      // "load the model" loads the small in-browser model, from the chat.
+      if (/load (the )?(small )?model/i.test(t)) {
+        if (model) { say("The small model is already loaded. Ask me anything.", "bot"); return; }
+        if (pcModel) { say("Your bigger model is already connected — that is the brain I use. Ask me anything.", "bot"); return; }
+        say("Loading the small model now — about 750 MB, once, then it is cached. Give it a moment.", "bot");
+        loadSmallModel();
+        return;
+      }
       // After Breakout the file is agentic: commands are executed, not
       // just queued. runCommand handles them; the path below is the
       // pre-breakout shape (build the Next phase, or queue a new one).
@@ -962,9 +1117,12 @@
         await runCommand(t);
         return;
       }
-      // Build the next phase for real, or queue a new one. "yes", "build
-      // it", "do it", "next", and the phase's own words all build the
-      // Next phase; anything else joins the roadmap as a new queued phase.
+      // Build the next phase for real, or queue a new one. Only an explicit
+      // build command builds it — "yes", "build it", "do it", "next", or
+      // "build the <phase>". A question is a conversation, never a build:
+      // the old keyword match built a phase whenever the text happened to
+      // contain one of its words ("what is a good morning routine?" built
+      // the morning brief). Questions go to the model, or to the offer.
       var lower = t.toLowerCase();
       var nextPh = null;
       for (var i = 0; i < phases.length; i++) {
@@ -975,12 +1133,22 @@
           if (phases[j].status === "queued") { nextPh = phases[j]; break; }
         }
       }
-      var buildIt = /^(y|yes|yeah|yep|build|build it|do it|next|go|ok|okay|sure|please)/i.test(t);
-      if (!buildIt && nextPh) {
-        var words = nextPh.title.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(function(w){ return w.length > 3 && ["with", "your", "what", "that", "this", "from", "into"].indexOf(w) < 0; });
-        for (var k = 0; k < words.length; k++) {
-          if (lower.indexOf(words[k]) >= 0) { buildIt = true; break; }
+      var isQuestion = /\?$/.test(t.trim()) || /^(what|how|why|when|who|where|which|can|could|should|would|is|are|do|does|did|tell me)\b/i.test(t.trim());
+      if (isQuestion) {
+        if (model || pcModel) {
+          var qReply = await chatWithModel(t);
+          if (qReply) { say(qReply, "bot"); return; }
         }
+        say("I do not have a model loaded yet, so I cannot answer that — say 'load the model' and I shall download the small one, and then ask me anything.", "bot");
+        return;
+      }
+      var buildIt = /^(y|yes|yeah|yep|build|do it|next|go|ok|okay|sure|please)\b/i.test(t);
+      // "build the morning brief" — explicit build naming the Next phase.
+      // Only fires when the text starts with "build", so a question that
+      // happens to contain a phase word never builds it.
+      if (!buildIt && nextPh && /^build\s+/i.test(t)) {
+        var titleWords = nextPh.title.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(function(w){ return w.length > 3; });
+        if (titleWords.some(function(w){ return lower.indexOf(w) >= 0; })) buildIt = true;
       }
       if (buildIt && nextPh) {
         var builtPh = buildNextPhase();
@@ -993,6 +1161,23 @@
         say("Everything on the roadmap is built. Tell me something new and I shall add it.");
         return;
       }
+      // An explicit add joins the roadmap as a queued phase.
+      var addMatch = t.match(/^add\s+(.+?)(?:\s+to the roadmap)?$/i);
+      if (addMatch) {
+        var addTitle = addMatch[1].charAt(0).toUpperCase() + addMatch[1].slice(1);
+        if (addTitle.length > 80) addTitle = addTitle.slice(0, 77) + "…";
+        phases.push({ title: addTitle, status: "queued", desc: "Added after the build — queued in the order you asked for it." });
+        renderRoadmap(phases);
+        say(addTitle + " is queued. Say yes, or name the next phase, and I shall build it.");
+        return;
+      }
+      // Anything else is a conversation, not a phase — if a model is
+      // available, talk to it. Without one, the request joins the roadmap
+      // as a queued phase, which is how the file behaves with no model.
+      if (model || pcModel) {
+        var chatReply = await chatWithModel(t);
+        if (chatReply) { say(chatReply, "bot"); return; }
+      }
       // A new request joins the roadmap as a queued phase.
       var title = t.charAt(0).toUpperCase() + t.slice(1);
       if (title.length > 80) title = title.slice(0, 77) + "…";
@@ -1003,6 +1188,43 @@
     }
   }
 
+  // --- Level 3: coming back. If a saved state exists, the file restores
+  // it instead of starting over: the people, the roadmap, the XP, the
+  // chat — and it greets you by name.
+  function restoreSession(){
+    state = "done";
+    showProfiles();
+    fillTiles();
+    updateLevelDisplay();
+    renderAchievements();
+    centerEl.classList.add("on");
+    buildStatusEl.textContent = "Welcome back — your Metaforge is live.";
+    var card = document.querySelector(".card");
+    centerChatEl.appendChild(card);
+    renderRoadmap(phases, true);
+    revealTiles(true);
+    // Restore the chat log, if it was saved.
+    if (restoredChatLog && restoredChatLog.length) {
+      chatEl.innerHTML = "";
+      restoredChatLog.forEach(function(m){
+        var div = document.createElement("div");
+        div.className = m.cls;
+        div.innerHTML = m.html;
+        chatEl.appendChild(div);
+      });
+    }
+    if (agentic) {
+      var banner = document.getElementById("breakoutBanner");
+      if (banner) banner.hidden = false;
+      inputEl.placeholder = "Tell it to do something…";
+    } else {
+      inputEl.placeholder = "Ask for the next phase…";
+    }
+    var names = people.map(function(p){ return p.name; }).join(" and ");
+    say("Welcome back" + (names ? ", " + names : "") + ". Everything is where you left it — the roadmap, the tiles, the chat.", "bot");
+    saveState();
+  }
+
   function send(){
     var v = inputEl.value;
     inputEl.value = "";
@@ -1011,8 +1233,20 @@
   }
   sendBtn.addEventListener("click", send);
   inputEl.addEventListener("keydown", function(e){ if (e.key === "Enter") send(); });
+  // Start over: clear the saved state and begin again from the first hello.
+  var resetBtn = document.getElementById("resetAll");
+  if (resetBtn) resetBtn.addEventListener("click", function(){
+    clearState();
+    location.reload();
+  });
 
-  say("Hi. I'm Metaforge — the seed of an AI companion you grow yourself. I start small: I'll ask a few questions, learn about you, and we'll build the road to me becoming your own capable assistant. Ready to start growing me? Say hello, or just say yes.");
+  // Start over, or come back: a saved state restores the companion;
+  // a fresh visit starts the conversation.
+  if (!loadState()) {
+    say("Hi. I'm Metaforge — the seed of an AI companion you grow yourself. I start small: I'll ask a few questions, learn about you, and we'll build the road to me becoming your own capable assistant. Ready to start growing me? Say hello, or just say yes.");
+  } else {
+    restoreSession();
+  }
   inputEl.focus();
 })();
 </script>
