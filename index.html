@@ -300,6 +300,31 @@
       }));
     } catch (e) { /* storage full or blocked: the file still works, it just forgets */ }
   }
+  // Junk phases crept in when casual words ("keep going", "i want to get
+  // to stage 5") were queued as roadmap items instead of understood as
+  // commands. Clean a restored roadmap: drop those, drop duplicates, and
+  // drop a queued phase that duplicates one already built.
+  function normPhaseTitle(t){
+    return String(t || "").toLowerCase().replace(/\s+phase\s*$/i, "").replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  }
+  function cleanPhases(){
+    var seen = {};
+    var built = {};
+    phases.forEach(function(p){ if (p.status === "built") built[normPhaseTitle(p.title)] = true; });
+    var out = [];
+    phases.forEach(function(p){
+      var n = normPhaseTitle(p.title);
+      if (!n) return;
+      if (seen[n]) return;
+      seen[n] = true;
+      if (p.status !== "built") {
+        if (n === "keep going" || n.indexOf("i want to get to stage") === 0 || n.indexOf("i want to get to level") === 0) return;
+        if (built[n]) return;
+      }
+      out.push(p);
+    });
+    phases = out;
+  }
   function loadState(){
     try {
       var raw = localStorage.getItem("metaforge-state");
@@ -307,6 +332,7 @@
       var s = JSON.parse(raw);
       if (!s || !s.people || !s.phases) return false;
       people = s.people; phases = s.phases; xp = s.xp || 0;
+      cleanPhases();
       agentic = !!s.agentic; unlocked = s.unlocked || {};
       chatHistory = s.chatHistory || [];
       worklog = s.worklog || []; userRules = s.userRules || [];
@@ -791,21 +817,45 @@
     modelProgressLabelEl.textContent = "Starting download…";
     try {
       var mod = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2/+esm");
+      // WASM multi-threading needs SharedArrayBuffer, which only exists on
+      // cross-origin isolated pages (COOP + COEP headers). This file runs
+      // from anywhere (file://, any host), so it cannot assume isolation.
+      // Without the pin, the threaded WASM init half-breaks on a
+      // non-isolated page and the session never creates. Pin to one
+      // thread when not isolated; threaded is a speed-up only when the
+      // page is isolated. Proxy worker off: no nested workers.
+      var isolated = (typeof crossOriginIsolated !== "undefined" && crossOriginIsolated);
+      mod.env.backends.onnx.wasm.numThreads = isolated ? Math.min(4, (navigator.hardwareConcurrency || 4)) : 1;
+      mod.env.backends.onnx.wasm.proxy = false;
       var pipe = null;
       var deviceUsed = "";
       // WebGPU is the speed upgrade; WASM is the potato fallback.
-      // navigator.gpu present does not guarantee a working context, so try
-      // WebGPU first and fall back to WASM on any failure.
-      var devices = (typeof navigator !== "undefined" && navigator.gpu) ? ["webgpu", "wasm"] : ["wasm"];
+      // navigator.gpu existing does NOT mean a usable adapter is behind
+      // it (headless / sandboxed / driver-less browsers expose the
+      // namespace with no adapter). Ask for the adapter; only try WebGPU
+      // when one is actually returned. Otherwise go straight to WASM so
+      // a dead WebGPU attempt cannot poison the fallback.
+      var devices = ["wasm"];
+      if (typeof navigator !== "undefined" && navigator.gpu && navigator.gpu.requestAdapter) {
+        try {
+          var adapter = await navigator.gpu.requestAdapter();
+          if (adapter) devices = ["webgpu", "wasm"];
+        } catch (e) { devices = ["wasm"]; }
+      }
       var lastErr = null;
+      var deviceErrors = [];
       for (var i = 0; i < devices.length; i++) {
+        modelStateEl.textContent = "Trying " + devices[i].toUpperCase() + "…";
         try {
           pipe = await mod.pipeline("text-generation", "onnx-community/Qwen2.5-0.5B-Instruct", { dtype: "q4", device: devices[i], progress_callback: onModelProgress });
           deviceUsed = devices[i];
           break;
-        } catch (e) { lastErr = e; }
+        } catch (e) {
+          lastErr = e;
+          deviceErrors.push(devices[i].toUpperCase() + ": " + (e && e.message ? e.message : String(e)));
+        }
       }
-      if (!pipe) throw lastErr || new Error("Model could not load on WebGPU or WASM.");
+      if (!pipe) throw new Error(deviceErrors.join(" | ") || "Model could not load on WebGPU or WASM.");
       model = pipe;
       modelProgressEl.hidden = true;
       modelStateEl.textContent = "Model ready on " + deviceUsed.toUpperCase() + ". It runs in this browser — WASM on the weakest machine, WebGPU as a speed upgrade, same model file.";
@@ -1333,7 +1383,7 @@
       say("Consider it done. Reminder set: " + what + ".", "bot");
       return true;
     }
-    if (/^(build|next|yes|yeah|yep|do it|go)\b/i.test(t)) {
+    if (/^(keep going|carry on|go on|continue|build|next|yes|yeah|yep|do it|go)\b/i.test(t)) {
       var builtPh = buildNextPhase();
       if (builtPh) { say(builtPh.title + " is built and live.", "bot"); }
       else { say("Everything on the roadmap is built.", "bot"); }
@@ -1349,6 +1399,37 @@
       else { say("Still to come: " + left.map(function(p){ return p.title; }).join(" · ") + ".", "bot"); }
       return true;
     }
+    // "Get to stage 5" is a destination, not a phase. Build in order
+    // until the Level N phase is built.
+    var stageMatch = t.match(/(?:stage|level)\s*(\d+)/i);
+    if (stageMatch && /(get|take|bring|reach|go|to)\b/i.test(lower)) {
+      var target = parseInt(stageMatch[1], 10);
+      var targetPh = null;
+      for (var si = 0; si < phases.length; si++) {
+        if (phases[si].desc && new RegExp("Level\\s*" + target + "\\b", "i").test(phases[si].desc)) { targetPh = phases[si]; break; }
+      }
+      if (!targetPh) { say("There is no stage " + target + " on the roadmap.", "bot"); return true; }
+      if (targetPh.status === "built") { say("Stage " + target + " — " + targetPh.title + " — is already built.", "bot"); return true; }
+      var guardS = 0;
+      while (targetPh.status !== "built" && guardS++ < 20) { if (!buildNextPhase()) break; }
+      say("Stage " + target + " — " + targetPh.title + " — is built and live.", "bot");
+      return true;
+    }
+    // Naming a phase builds it (or says it is already built) — it does
+    // not queue a second copy of it.
+    var normInput = lower.replace(/\s+phase\s*$/i, "").trim();
+    var namedPh = null;
+    for (var ni = 0; ni < phases.length; ni++) {
+      var shortName = phases[ni].title.split(/[:—]/)[0].trim().toLowerCase();
+      if (normInput === shortName || normInput === phases[ni].title.toLowerCase()) { namedPh = phases[ni]; break; }
+    }
+    if (namedPh) {
+      if (namedPh.status === "built") { say(namedPh.title + " is already built.", "bot"); return true; }
+      var guardN = 0;
+      while (namedPh.status !== "built" && guardN++ < 20) { if (!buildNextPhase()) break; }
+      say(namedPh.title + " is built and live.", "bot");
+      return true;
+    }
     // Anything else is a conversation: the model answers with the history
     // behind it — PC first when connected, the small model otherwise. Only
     // with no model at all does the request join the roadmap as a phase.
@@ -1359,6 +1440,17 @@
     }
     var title2 = t.charAt(0).toUpperCase() + t.slice(1);
     if (title2.length > 80) title2 = title2.slice(0, 77) + "…";
+    // Never queue a second copy of a phase that is already there.
+    var normTitle = normPhaseTitle(title2);
+    var dup = null;
+    for (var di = 0; di < phases.length; di++) { if (normPhaseTitle(phases[di].title) === normTitle) { dup = phases[di]; break; } }
+    if (dup) { say(title2 + " is already on the roadmap.", "bot"); return true; }
+    // A bare word or two is not a thing to build. Point at the next step
+    // instead of queuing the words as a phase.
+    if (t.trim().split(/\s+/).length <= 2) {
+      say("Say 'yes' to build the next phase, or 'load the model' so I can actually talk. Tell me what you'd like built and I shall queue it.", "bot");
+      return true;
+    }
     phases.push({ title: title2, status: "queued", desc: "Added by command — queued in the order you asked for it." });
     renderRoadmap(phases);
     say(title2 + " is queued on the roadmap. Say the word and I shall build it.", "bot");
@@ -1494,7 +1586,7 @@
         say("I do not have a model loaded yet, so I cannot answer that — say 'load the model' and I shall download the small one, and then ask me anything.", "bot");
         return;
       }
-      var buildIt = /^(y|yes|yeah|yep|build|do it|next|go|ok|okay|sure|please)\b/i.test(t);
+      var buildIt = /^(keep going|carry on|go on|continue|y|yes|yeah|yep|build|do it|next|go|ok|okay|sure|please)\b/i.test(t);
       // "build the morning brief" — explicit build naming the Next phase.
       // Only fires when the text starts with "build", so a question that
       // happens to contain a phase word never builds it.
@@ -1509,6 +1601,37 @@
           return;
         }
       }
+      // "Get to stage 5" is a destination, not a phase. Build in order
+      // until the Level N phase is built.
+      var stageMatch = t.match(/(?:stage|level)\s*(\d+)/i);
+      if (stageMatch && /(get|take|bring|reach|go|to)\b/i.test(lower)) {
+        var target = parseInt(stageMatch[1], 10);
+        var targetPh = null;
+        for (var si = 0; si < phases.length; si++) {
+          if (phases[si].desc && new RegExp("Level\\s*" + target + "\\b", "i").test(phases[si].desc)) { targetPh = phases[si]; break; }
+        }
+        if (!targetPh) { say("There is no stage " + target + " on the roadmap.", "bot"); return; }
+        if (targetPh.status === "built") { say("Stage " + target + " — " + targetPh.title + " — is already built.", "bot"); return; }
+        var guardS = 0;
+        while (targetPh.status !== "built" && guardS++ < 20) { if (!buildNextPhase()) break; }
+        say("Stage " + target + " — " + targetPh.title + " — is built and live. The roadmap shows it. What shall I build next?", "bot");
+        return;
+      }
+      // Naming a phase builds it (or says it is already built) — it does
+      // not queue a second copy of it.
+      var normInput = lower.replace(/\s+phase\s*$/i, "").trim();
+      var namedPh = null;
+      for (var ni = 0; ni < phases.length; ni++) {
+        var shortName = phases[ni].title.split(/[:—]/)[0].trim().toLowerCase();
+        if (normInput === shortName || normInput === phases[ni].title.toLowerCase()) { namedPh = phases[ni]; break; }
+      }
+      if (namedPh) {
+        if (namedPh.status === "built") { say(namedPh.title + " is already built.", "bot"); return; }
+        var guardN = 0;
+        while (namedPh.status !== "built" && guardN++ < 20) { if (!buildNextPhase()) break; }
+        say(namedPh.title + " is built and live. The roadmap shows it. What shall I build next?", "bot");
+        return;
+      }
       if (!nextPh) {
         say("Everything on the roadmap is built. Tell me something new and I shall add it.");
         return;
@@ -1518,6 +1641,9 @@
       if (addMatch) {
         var addTitle = addMatch[1].charAt(0).toUpperCase() + addMatch[1].slice(1);
         if (addTitle.length > 80) addTitle = addTitle.slice(0, 77) + "…";
+        var addDup = null;
+        for (var ai = 0; ai < phases.length; ai++) { if (normPhaseTitle(phases[ai].title) === normPhaseTitle(addTitle)) { addDup = phases[ai]; break; } }
+        if (addDup) { say(addTitle + " is already on the roadmap.", "bot"); return; }
         phases.push({ title: addTitle, status: "queued", desc: "Added after the build — queued in the order you asked for it." });
         renderRoadmap(phases);
         say(addTitle + " is queued. Say yes, or name the next phase, and I shall build it.");
@@ -1533,6 +1659,17 @@
       // A new request joins the roadmap as a queued phase.
       var title = t.charAt(0).toUpperCase() + t.slice(1);
       if (title.length > 80) title = title.slice(0, 77) + "…";
+      // Never queue a second copy of a phase that is already there.
+      var normTitle = normPhaseTitle(title);
+      var dup = null;
+      for (var di = 0; di < phases.length; di++) { if (normPhaseTitle(phases[di].title) === normTitle) { dup = phases[di]; break; } }
+      if (dup) { say(title + " is already on the roadmap.", "bot"); return; }
+      // A bare word or two is not a thing to build. Point at the next step
+      // instead of queuing the words as a phase.
+      if (t.trim().split(/\s+/).length <= 2) {
+        say("Say 'yes' to build the next phase, or 'load the model' so I can actually talk. Tell me what you'd like built and I shall queue it.", "bot");
+        return;
+      }
       phases.push({ title: title, status: "queued", desc: "Added after the build — queued in the order you asked for it." });
       renderRoadmap(phases);
       say(title + " is queued. Say yes, or name the next phase, and I shall build it.");
