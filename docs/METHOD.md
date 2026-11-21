@@ -11,7 +11,7 @@ The old skill was writing code. The new skill is holding a design clearly enough
 A metaphor holds the whole design in one image. It is a compression: everything the system is, in a shape you can keep in your head.
 
 - A door behind a door: an event knocks by writing, an agent knocks by polling. Two rooms, two kinds of knock. That one image produced the whole push/poll design.
-- A harness that builds itself: a small file that starts as a chat and ends as a command center. That one image is this product.
+- A harness that builds itself: a small file that starts as a chat and ends as your own capable assistant. That one image is this product.
 - Mold, then cast, then motor, then train, then finish: the locked physics of a machine, in order, no step skipped.
 
 Pick the metaphor first. Then carry it. Every decision gets checked against it: does this fit the image? If it does not fit, either the decision is wrong or the metaphor is. Change one of them deliberately, never both at once, and never silently.
@@ -26,7 +26,7 @@ This is the discipline: one image, carried end to end, through every prompt, eve
 
 This is what makes building accessible. You do not need to know syntax, frameworks, or toolchains. You need to know how to think clearly in metaphors: to see the thing you want, name it in an image, and hold that image steady while the model builds it.
 
-Anyone who can think clearly in metaphors can build. That is how this project was built — a household's whole AI stack, first built by free cloud models, guided by concepts carried through metaphors — and it is how this file teaches others to build.
+Anyone who can think clearly in metaphors can build. That is how this project was built — a whole AI stack, first built by free cloud models, guided by concepts carried through metaphors — and it is how this file teaches others to build.
 
 ## The rules
 

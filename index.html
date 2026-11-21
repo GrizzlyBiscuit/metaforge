@@ -499,8 +499,8 @@
   }
 
   // --- the roadmap: the plan, built from the conversation ---
-  // The file knows the end goal (a command center that runs the household)
-  // and builds the road to it from what the household asked for, in order.
+  // The file knows the end goal (your own capable assistant)
+  // and builds the road to it from what you asked for, in order.
   // The repo phases are the point: the file starts bare and grabs a part
   // from GrizzlyBiscuit/command-center as each one lands — the PC hub, the
   // agent runner, the remote routes, the installer — until the Breakout,
@@ -756,7 +756,7 @@
     // The chat moves into the command center: it was the start, now it is one option inside it.
     var card = document.querySelector(".card");
     centerChatEl.appendChild(card);
-    // The build narrates itself, stage by stage, so the household watches it
+    // The build narrates itself, stage by stage, so you watch it
     // assemble and improve: roadmap first, then the tiles wire in.
     setTimeout(function(){
       buildStatusEl.textContent = "Building the roadmap…";
