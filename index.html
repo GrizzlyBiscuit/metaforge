@@ -27,6 +27,11 @@
   .msg.bot { background:var(--panel2); border:1px solid var(--line); align-self:flex-start; border-bottom-left-radius:4px; }
   .msg.user { background:var(--panel2); border:1px solid var(--accent); align-self:flex-end; border-bottom-right-radius:4px; }
   .msg.sys { background:transparent; border:1px dashed var(--line); color:var(--muted); align-self:center; font-size:.9em; }
+  .msg.typing { display:flex; gap:5px; align-items:center; padding:14px 16px; }
+  .msg.typing span { width:7px; height:7px; border-radius:50%; background:var(--muted); animation:typing-blink 1.1s infinite; }
+  .msg.typing span:nth-child(2) { animation-delay:.18s; }
+  .msg.typing span:nth-child(3) { animation-delay:.36s; }
+  @keyframes typing-blink { 0%,100% { opacity:.25; } 50% { opacity:1; } }
   .row { display:flex; gap:8px; margin-top:14px; }
   input[type=text] { flex:1; background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:11px 12px; font-size:1em; }
   input[type=text]:focus { outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent); }
@@ -266,12 +271,47 @@
     { id: "forge", label: "Full Forge" }
   ];
 
+  // Bot replies are paced, not instant: a typing indicator, then the
+  // message lands after a beat that scales with its length. Instant
+  // replies read as a script; a considered pause reads as an agent.
+  // Replies queue so two in a row play out one at a time, never overlapping.
+  var sayQueue = [];
+  var saying = false;
   function say(text, who){
+    who = who || "bot";
+    if (who === "bot") {
+      sayQueue.push(text);
+      pumpSay();
+      return;
+    }
     var d = document.createElement("div");
-    d.className = "msg " + (who || "bot");
+    d.className = "msg " + who;
     d.textContent = text;
     chatEl.appendChild(d);
     d.scrollIntoView({block:"nearest"});
+  }
+  function pumpSay(){
+    if (saying || !sayQueue.length) return;
+    saying = true;
+    var text = sayQueue.shift();
+    var words = text.split(/\s+/).length;
+    var delay = Math.min(2500, 700 + 25 * words);
+    var t = document.createElement("div");
+    t.className = "msg bot typing";
+    t.setAttribute("aria-label", "Metaforge is thinking");
+    t.innerHTML = "<span></span><span></span><span></span>";
+    chatEl.appendChild(t);
+    t.scrollIntoView({block:"nearest"});
+    setTimeout(function(){
+      t.remove();
+      var d = document.createElement("div");
+      d.className = "msg bot";
+      d.textContent = text;
+      chatEl.appendChild(d);
+      d.scrollIntoView({block:"nearest"});
+      saying = false;
+      pumpSay();
+    }, delay);
   }
   function sys(text){
     var d = document.createElement("div");
@@ -891,8 +931,8 @@
     }
     if (state === "confirm") {
       if (/^(y|yes|yeah|yep|looks good|good|ok|okay|sure)/i.test(t)) { finish(); return; }
-      // A name change is applied, not just promised: "change the name to Matthew"
-      // or "change Matt's name to Matthew". Stays in confirm so the user can say yes.
+      // A name change is applied, not just promised: "change the name to Alex"
+      // or "change Sam's name to Samuel". Stays in confirm so the user can say yes.
       var m = t.match(/change\s+(?:(?:(\w+)'s|the)\s+)?name\s+to\s+([A-Za-z][A-Za-z '\-]*)/i);
       if (m) {
         var target = m[1];
